@@ -1,0 +1,7 @@
+{
+  "name": "Riingr Messenger",
+  "description": "A modern messaging application, similar to WhatsApp or Telegram, powered by the Gemini API for an integrated AI chat experience.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}

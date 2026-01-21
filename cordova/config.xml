@@ -1,0 +1,58 @@
+<?xml version='1.0' encoding='utf-8'?>
+<widget id="com.xschatapp.app" version="1.0.1"
+  xmlns="http://www.w3.org/ns/widgets"
+  xmlns:cdv="http://cordova.apache.org/ns/1.0">
+  <name>Riingr</name>
+  <description>Riingr chat app</description>
+  <author email="support@example.com" href="https://example.com">Riingr</author>
+
+  <content src="index.html" />
+  <access origin="*" />
+  <allow-navigation href="*" />
+
+  <preference name="deployment-target" value="13.0" />
+  <preference name="WKWebViewOnly" value="true" />
+
+  <platform name="ios">
+    <icon src="resources/icon.png" width="1024" height="1024" />
+    <config-file parent="NSAppTransportSecurity" target="*-Info.plist">
+      <dict>
+        <key>NSAllowsArbitraryLoads</key>
+        <true/>
+        <key>NSExceptionDomains</key>
+        <dict>
+          <key>esm.sh</key>
+          <dict>
+            <key>NSIncludesSubdomains</key>
+            <true/>
+            <key>NSExceptionAllowsInsecureHTTPLoads</key>
+            <false/>
+          </dict>
+          <key>cdn.tailwindcss.com</key>
+          <dict>
+            <key>NSIncludesSubdomains</key>
+            <true/>
+            <key>NSExceptionAllowsInsecureHTTPLoads</key>
+            <false/>
+          </dict>
+        </dict>
+      </dict>
+    </config-file>
+  </platform>
+
+  <edit-config file="*-Info.plist" mode="merge" target="NSCameraUsageDescription">
+    <string>This app needs access to your camera to take photos and videos for sharing in chat.</string>
+  </edit-config>
+  <edit-config file="*-Info.plist" mode="merge" target="NSPhotoLibraryUsageDescription">
+    <string>This app needs access to your photo library to share images in chat.</string>
+  </edit-config>
+  <edit-config file="*-Info.plist" mode="merge" target="NSPhotoLibraryAddUsageDescription">
+    <string>This app needs to save photos to your library.</string>
+  </edit-config>
+  <edit-config file="*-Info.plist" mode="merge" target="NSMicrophoneUsageDescription">
+    <string>This app needs access to your microphone to record voice messages.</string>
+  </edit-config>
+  <edit-config file="*-Info.plist" mode="merge" target="NSLocationWhenInUseUsageDescription">
+    <string>This app may use your location for sharing.</string>
+  </edit-config>
+</widget>

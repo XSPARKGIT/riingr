@@ -1,0 +1,30 @@
+{
+  "name": "riingr-cordova",
+  "private": true,
+  "version": "1.0.1",
+  "description": "Cordova wrapper for Riingr",
+  "scripts": {
+    "build:web": "npm --prefix .. run build:cordova",
+    "sync:web": "rm -rf www && mkdir -p www && rsync -a ../dist/ www/ && node inject-cordova.js && npx cordova prepare ios --no-telemetry || true",
+    "prepare": "npm run build:web && npm run sync:web",
+    "add:ios": "npx cordova platform add ios",
+    "build:ios": "npm run prepare && npx cordova build ios",
+    "open:ios": "open platforms/ios/Riingr.xcworkspace"
+  },
+  "devDependencies": {
+    "cordova": "^12.0.0",
+    "cordova-ios": "^7.0.1",
+    "cordova-res": "^0.15.4"
+  },
+  "cordova": {
+    "platforms": [
+      "ios"
+    ],
+    "plugins": {
+      "cordova-plugin-ionic-webview": {}
+    }
+  },
+  "dependencies": {
+    "cordova-plugin-ionic-webview": "^5.0.1"
+  }
+}
