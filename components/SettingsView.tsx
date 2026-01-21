@@ -197,7 +197,11 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({ user, activeCa
     );
 };
 
-export const EditProfileSection: React.FC<{user: User, onBack: () => void}> = ({ user, onBack }) => {
+export const EditProfileSection: React.FC<{
+    user: User;
+    onBack: () => void;
+    onLogout: () => void;
+}> = ({ user, onBack, onLogout }) => {
     const [firstName, setFirstName] = useState(user.name.split(' ')[0]);
     const [lastName, setLastName] = useState(user.name.split(' ')[1] || '');
     const [bio, setBio] = useState('A few words about you');
@@ -270,7 +274,13 @@ export const EditProfileSection: React.FC<{user: User, onBack: () => void}> = ({
 
                     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden divide-y divide-slate-100 mb-10">
                         <button className="w-full px-5 py-4 text-left text-[15px] font-black text-green-600 hover:bg-green-50 transition-colors">Add Account</button>
-                        <button className="w-full px-5 py-4 text-left text-[15px] font-black text-red-500 hover:bg-red-50 transition-colors">Log Out</button>
+                        <button
+                            type="button"
+                            onClick={onLogout}
+                            className="w-full px-5 py-4 text-left text-[15px] font-black text-red-500 hover:bg-red-50 transition-colors"
+                        >
+                            Log Out
+                        </button>
                     </div>
                 </div>
             </div>

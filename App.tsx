@@ -38,7 +38,10 @@ const App: React.FC = () => {
         return localStorage.getItem(AUTH_KEY) === 'true';
     });
 
-    const [conversations, setConversations] = useState<Conversation[]>(INITIAL_CONVERSATIONS);
+    const [conversations, setConversations] = useState<Conversation[]>(() => {
+        const authed = localStorage.getItem(AUTH_KEY) === 'true';
+        return authed ? [] : INITIAL_CONVERSATIONS;
+    });
     const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [replyingTo, setReplyingTo] = useState<Message | null>(null);
@@ -282,6 +285,7 @@ const App: React.FC = () => {
             username: `@${emailName}`
         };
         setCurrentUser(user);
+        setConversations([]); // Clear placeholders on login to avoid stale data
         setIsAuthenticated(true);
         localStorage.setItem(AUTH_KEY, 'true');
         localStorage.setItem(USER_KEY, JSON.stringify(user));
@@ -659,7 +663,7 @@ const App: React.FC = () => {
     const renderSettingsDetail = () => {
         const onBack = () => handleSelectSettings(null);
         switch (settingsCategory) {
-            case 'profile': return <EditProfileSection user={currentUser as User} onBack={onBack} />;
+            case 'profile': return <EditProfileSection user={currentUser as User} onBack={onBack} onLogout={handleLogout} />;
             case 'general': return <GeneralSettingsView onBack={onBack} />;
             case 'notifications': return <NotificationsSettingsView onBack={onBack} />;
             case 'privacy': return <PrivacySettingsView onBack={onBack} />;

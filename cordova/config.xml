@@ -6,9 +6,9 @@
   <description>Riingr chat app</description>
   <author email="support@example.com" href="https://example.com">Riingr</author>
 
-  <content src="index.html" />
-  <access origin="*" />
-  <allow-navigation href="*" />
+  <content src="https://riingr.onrender.com" />
+  <access origin="https://riingr.onrender.com" />
+  <allow-navigation href="https://riingr.onrender.com/*" />
 
   <preference name="deployment-target" value="13.0" />
   <preference name="WKWebViewOnly" value="true" />
