@@ -684,7 +684,7 @@ const App: React.FC = () => {
     if (!isAuthenticated) return <AuthScreen onLogin={handleLogin} />;
 
     return (
-        <div className="h-[100dvh] w-screen flex flex-col font-sans antialiased overflow-hidden bg-white pt-safe">
+        <div className="h-[100dvh] w-screen flex flex-col font-sans antialiased overflow-hidden bg-white">
             <div className={`${showChat || showSettingsDetail ? 'hidden md:block' : 'block'} flex-shrink-0`}>
                 <Header 
                     onReset={() => setConversations(INITIAL_CONVERSATIONS)} 

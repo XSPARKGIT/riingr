@@ -115,7 +115,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
     };
 
     return (
-        <div className="h-screen w-screen flex flex-col items-center justify-center bg-white font-sans overflow-hidden relative pt-safe">
+        <div className="h-screen w-screen flex flex-col items-center justify-center bg-white font-sans overflow-hidden relative">
             <div className="absolute inset-0 opacity-[0.03] pointer-events-none z-0">
                 <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
                     <defs>
