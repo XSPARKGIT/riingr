@@ -29,7 +29,7 @@ interface SettingsSidebarProps {
 export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({ user, activeCategory, onSelectCategory }) => {
     return (
         <div className="w-full h-full flex flex-col bg-white overflow-hidden">
-            <div className="p-4 border-b border-slate-100 bg-white sticky top-0 z-10 shrink-0">
+            <div className="p-4 border-b border-slate-100 bg-white sticky top-0 z-10 shrink-0 pt-safe">
                 <div className="flex items-center justify-between mb-4">
                     <h2 className="text-[17px] font-black text-slate-800 tracking-tight">Settings</h2>
                     <button className="text-[13px] font-bold text-green-600 hover:opacity-70 transition-opacity">Edit</button>
@@ -208,7 +208,7 @@ export const EditProfileSection: React.FC<{
 
     return (
         <div className="flex-1 flex flex-col h-full bg-[#f8f9fa] relative overflow-hidden min-h-0">
-            <div className="h-16 px-6 flex items-center justify-between bg-white/95 backdrop-blur-md border-b border-slate-200 sticky top-0 z-20 shrink-0">
+            <div className="h-16 px-6 flex items-center justify-between bg-white/95 backdrop-blur-md border-b border-slate-200 sticky top-0 z-20 shrink-0 pt-safe">
                 <button onClick={onBack} className="flex items-center text-green-600 font-bold hover:opacity-70 transition-all text-[15px]">
                     <ArrowLeftIcon className="h-6 w-6 mr-1" />
                     <span>Back</span>
@@ -290,7 +290,7 @@ export const EditProfileSection: React.FC<{
 
 export const GeneralSettingsView: React.FC<{onBack: () => void}> = ({ onBack }) => (
     <div className="flex-1 flex flex-col h-full bg-[#f8f9fa] relative overflow-hidden min-h-0">
-        <div className="h-16 px-6 flex items-center justify-between bg-white/95 backdrop-blur-md border-b border-slate-200 sticky top-0 z-20 shrink-0">
+        <div className="h-16 px-6 flex items-center justify-between bg-white/95 backdrop-blur-md border-b border-slate-200 sticky top-0 z-20 shrink-0 pt-safe">
             <button onClick={onBack} className="flex items-center text-green-600 font-bold hover:opacity-70 transition-all text-[15px]">
                 <ArrowLeftIcon className="h-6 w-6 mr-1" />
                 <span>Back</span>
@@ -324,7 +324,7 @@ export const GeneralSettingsView: React.FC<{onBack: () => void}> = ({ onBack }) 
 
 export const NotificationsSettingsView: React.FC<{onBack: () => void}> = ({ onBack }) => (
     <div className="flex-1 flex flex-col h-full bg-[#f8f9fa] relative overflow-hidden min-h-0">
-        <div className="h-16 px-6 flex items-center justify-between bg-white border-b border-slate-200 sticky top-0 z-20 shrink-0">
+        <div className="h-16 px-6 flex items-center justify-between bg-white border-b border-slate-200 sticky top-0 z-20 shrink-0 pt-safe">
             <button onClick={onBack} className="flex items-center text-green-600 font-bold"><ArrowLeftIcon className="h-6 w-6 mr-1" /><span>Back</span></button>
             <h3 className="text-[15px] font-black text-slate-800">Notifications</h3>
             <button onClick={onBack} className="text-green-600 font-black">Done</button>
@@ -343,7 +343,7 @@ export const NotificationsSettingsView: React.FC<{onBack: () => void}> = ({ onBa
 
 export const PrivacySettingsView: React.FC<{onBack: () => void}> = ({ onBack }) => (
     <div className="flex-1 flex flex-col h-full bg-[#f8f9fa] relative overflow-hidden min-h-0">
-        <div className="h-16 px-6 flex items-center justify-between bg-white border-b border-slate-200 sticky top-0 z-20 shrink-0">
+        <div className="h-16 px-6 flex items-center justify-between bg-white border-b border-slate-200 sticky top-0 z-20 shrink-0 pt-safe">
             <button onClick={onBack} className="flex items-center text-green-600 font-bold"><ArrowLeftIcon className="h-6 w-6 mr-1" /><span>Back</span></button>
             <h3 className="text-[15px] font-black text-slate-800">Privacy and Security</h3>
             <button onClick={onBack} className="text-green-600 font-black">Done</button>
@@ -362,7 +362,7 @@ export const PrivacySettingsView: React.FC<{onBack: () => void}> = ({ onBack }) 
 
 export const DataStorageSettingsView: React.FC<{onBack: () => void}> = ({ onBack }) => (
     <div className="flex-1 flex flex-col h-full bg-[#f8f9fa] relative overflow-hidden min-h-0">
-        <div className="h-16 px-6 flex items-center justify-between bg-white border-b border-slate-200 sticky top-0 z-20 shrink-0">
+        <div className="h-16 px-6 flex items-center justify-between bg-white border-b border-slate-200 sticky top-0 z-20 shrink-0 pt-safe">
             <button onClick={onBack} className="flex items-center text-green-600 font-bold"><ArrowLeftIcon className="h-6 w-6 mr-1" /><span>Back</span></button>
             <h3 className="text-[15px] font-black text-slate-800">Data and Storage</h3>
             <button onClick={onBack} className="text-green-600 font-black">Done</button>
@@ -387,7 +387,7 @@ export const AppearanceSettingsView: React.FC<{onBack: () => void}> = ({ onBack 
     ];
     return (
         <div className="flex-1 flex flex-col h-full bg-[#f8f9fa] relative overflow-hidden min-h-0">
-            <div className="h-16 px-6 flex items-center justify-between bg-white border-b border-slate-200 sticky top-0 z-20 shrink-0">
+            <div className="h-16 px-6 flex items-center justify-between bg-white border-b border-slate-200 sticky top-0 z-20 shrink-0 pt-safe">
                 <button onClick={onBack} className="flex items-center text-green-600 font-bold"><ArrowLeftIcon className="h-6 w-6 mr-1" /><span>Back</span></button>
                 <h3 className="text-[15px] font-black text-slate-800">Appearance</h3>
                 <button onClick={onBack} className="text-green-600 font-black">Done</button>
@@ -408,7 +408,7 @@ export const AppearanceSettingsView: React.FC<{onBack: () => void}> = ({ onBack 
 
 export const LanguageSettingsView: React.FC<{onBack: () => void}> = ({ onBack }) => (
     <div className="flex-1 flex flex-col h-full bg-[#f8f9fa] relative overflow-hidden min-h-0">
-        <div className="h-16 px-6 flex items-center justify-between bg-white border-b border-slate-200 sticky top-0 z-20 shrink-0">
+        <div className="h-16 px-6 flex items-center justify-between bg-white border-b border-slate-200 sticky top-0 z-20 shrink-0 pt-safe">
             <button onClick={onBack} className="flex items-center text-green-600 font-bold"><ArrowLeftIcon className="h-6 w-6 mr-1" /><span>Back</span></button>
             <h3 className="text-[15px] font-black text-slate-800">Language</h3>
             <button onClick={onBack} className="text-green-600 font-black">Done</button>
@@ -427,7 +427,7 @@ export const LanguageSettingsView: React.FC<{onBack: () => void}> = ({ onBack })
 
 export const StickersEmojiSettingsView: React.FC<{onBack: () => void}> = ({ onBack }) => (
     <div className="flex-1 flex flex-col h-full bg-[#f8f9fa] relative overflow-hidden min-h-0">
-        <div className="h-16 px-6 flex items-center justify-between bg-white border-b border-slate-200 sticky top-0 z-20 shrink-0">
+        <div className="h-16 px-6 flex items-center justify-between bg-white border-b border-slate-200 sticky top-0 z-20 shrink-0 pt-safe">
             <button onClick={onBack} className="flex items-center text-green-600 font-bold"><ArrowLeftIcon className="h-6 w-6 mr-1" /><span>Back</span></button>
             <h3 className="text-[15px] font-black text-slate-800">Stickers and Emoji</h3>
             <button onClick={onBack} className="text-green-600 font-black">Done</button>
@@ -445,7 +445,7 @@ export const StickersEmojiSettingsView: React.FC<{onBack: () => void}> = ({ onBa
 
 export const ChatFoldersSettingsView: React.FC<{onBack: () => void}> = ({ onBack }) => (
     <div className="flex-1 flex flex-col h-full bg-[#f8f9fa] relative overflow-hidden min-h-0">
-        <div className="h-16 px-6 flex items-center justify-between bg-white border-b border-slate-200 sticky top-0 z-20 shrink-0">
+        <div className="h-16 px-6 flex items-center justify-between bg-white border-b border-slate-200 sticky top-0 z-20 shrink-0 pt-safe">
             <button onClick={onBack} className="flex items-center text-green-600 font-bold"><ArrowLeftIcon className="h-6 w-6 mr-1" /><span>Back</span></button>
             <h3 className="text-[15px] font-black text-slate-800">Chat Folders</h3>
             <button onClick={onBack} className="text-green-600 font-black">Done</button>
@@ -475,7 +475,7 @@ export const PremiumSettingsView: React.FC<{onBack: () => void}> = ({ onBack }) 
 
     return (
         <div className="flex-1 flex flex-col h-full bg-white relative overflow-hidden min-h-0">
-            <div className="h-16 px-6 flex items-center justify-between bg-white border-b border-slate-200 sticky top-0 z-20 shrink-0">
+            <div className="h-16 px-6 flex items-center justify-between bg-white border-b border-slate-200 sticky top-0 z-20 shrink-0 pt-safe">
                 <button onClick={onBack} className="flex items-center text-indigo-600 font-bold hover:opacity-70 transition-all text-[15px]">
                     <ArrowLeftIcon className="h-6 w-6 mr-1" />
                     <span>Back</span>
@@ -524,7 +524,7 @@ export const PremiumSettingsView: React.FC<{onBack: () => void}> = ({ onBack }) 
 export const StarsSettingsView: React.FC<{onBack: () => void}> = ({ onBack }) => {
     return (
         <div className="flex-1 flex flex-col h-full bg-[#f8f9fa] relative overflow-hidden text-slate-800 min-h-0">
-            <div className="h-16 px-6 flex items-center justify-between bg-white/95 backdrop-blur-md border-b border-slate-200 sticky top-0 z-20 shrink-0">
+            <div className="h-16 px-6 flex items-center justify-between bg-white/95 backdrop-blur-md border-b border-slate-200 sticky top-0 z-20 shrink-0 pt-safe">
                 <button onClick={onBack} className="flex items-center text-green-600 font-bold hover:opacity-70 transition-all text-[15px]">
                     <ArrowLeftIcon className="h-6 w-6 mr-1" />
                     <span>Back</span>
@@ -580,7 +580,7 @@ export const BusinessSettingsView: React.FC<{onBack: () => void}> = ({ onBack })
 
     return (
         <div className="flex-1 flex flex-col h-full bg-[#f8f9fa] relative overflow-hidden text-slate-800 min-h-0">
-            <div className="h-16 px-6 flex items-center justify-between bg-white/95 backdrop-blur-md border-b border-slate-200 sticky top-0 z-20 shrink-0">
+            <div className="h-16 px-6 flex items-center justify-between bg-white/95 backdrop-blur-md border-b border-slate-200 sticky top-0 z-20 shrink-0 pt-safe">
                 <button onClick={onBack} className="flex items-center text-green-600 font-bold hover:opacity-70 transition-all text-[15px]">
                     <ArrowLeftIcon className="h-6 w-6 mr-1" />
                     <span>Back</span>
@@ -632,7 +632,7 @@ export const GiftSettingsView: React.FC<{users: User[], onBack: () => void}> = (
 
     return (
         <div className="flex-1 flex flex-col h-full bg-[#f8f9fa] relative overflow-hidden text-slate-800 min-h-0">
-             <div className="h-16 px-6 flex items-center justify-between bg-white border-b border-slate-200 sticky top-0 z-20 shrink-0">
+             <div className="h-16 px-6 flex items-center justify-between bg-white border-b border-slate-200 sticky top-0 z-20 shrink-0 pt-safe">
                 <button onClick={onBack} className="p-2 -ml-2 rounded-full hover:bg-slate-100 transition-colors">
                     <CloseIcon className="h-6 w-6 text-slate-600" />
                 </button>
@@ -720,7 +720,7 @@ export const SetProfileColorView: React.FC<{user: User, onBack: () => void}> = (
     return (
         <div className="flex-1 flex flex-col h-full bg-[#f8f9fa] text-slate-800 relative overflow-hidden min-h-0 font-sans">
             {/* Standard Detail Header */}
-            <div className="h-16 px-4 flex items-center justify-between bg-white border-b border-slate-200 sticky top-0 z-20 shrink-0">
+            <div className="h-16 px-4 flex items-center justify-between bg-white border-b border-slate-200 sticky top-0 z-20 shrink-0 pt-safe">
                 <button onClick={onBack} className="text-green-600 font-bold text-[15px] flex items-center hover:opacity-70 transition-opacity">
                     <ArrowLeftIcon className="h-6 w-6 mr-1" />
                     Back

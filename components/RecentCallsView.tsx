@@ -56,7 +56,7 @@ export const RecentCallsView: React.FC<RecentCallsViewProps> = ({ calls, users }
     return (
         <div className="flex flex-col h-full bg-white relative">
             {/* Header */}
-            <div className="p-4 border-b border-slate-100 bg-white/90 backdrop-blur-md sticky top-0 z-10">
+            <div className="p-4 border-b border-slate-100 bg-white/90 backdrop-blur-md sticky top-0 z-10 pt-safe">
                 <div className="flex items-center justify-between mb-4">
                     <button className="text-[13px] font-bold text-green-600 hover:opacity-70 transition-opacity">
                         Sort

@@ -113,7 +113,7 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
     return (
         <div className="flex flex-col h-full bg-white">
             {/* Contacts Header */}
-            <div className="p-4 border-b border-slate-100 bg-white/90 backdrop-blur-md sticky top-0 z-10">
+            <div className="p-4 border-b border-slate-100 bg-white/90 backdrop-blur-md sticky top-0 z-10 pt-safe">
                 <div className="flex items-center justify-between mb-4">
                     <div className="relative" ref={sortMenuRef}>
                         <button 

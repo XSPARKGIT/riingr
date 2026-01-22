@@ -110,7 +110,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
         <div className="flex-1 flex flex-col h-full bg-white relative overflow-hidden">
             {activeSection === 'chats' ? (
                 <>
-                    <div className="p-4 border-b border-slate-100 bg-white/90 backdrop-blur-md sticky top-0 z-10">
+                    <div className="p-4 border-b border-slate-100 bg-white/90 backdrop-blur-md sticky top-0 z-10 pt-safe">
                         <div className="flex items-center justify-between mb-4">
                             <h2 className="text-2xl font-black text-slate-800 tracking-tight">Chats</h2>
                             <div className="relative" ref={menuRef}>

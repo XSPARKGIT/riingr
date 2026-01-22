@@ -24,7 +24,7 @@ export const Header: React.FC<HeaderProps> = ({ onReset, isOnline = true, syncQu
     }, []);
 
     return (
-        <header className="flex-shrink-0 bg-white/80 backdrop-blur-sm border-b border-slate-200 shadow-sm z-50">
+        <header className="flex-shrink-0 bg-white/80 backdrop-blur-sm border-b border-slate-200 shadow-sm z-50 pt-safe">
             <div className="container mx-auto px-4">
                 <div className="flex items-center justify-between h-16">
                     <div className="flex items-center space-x-3">

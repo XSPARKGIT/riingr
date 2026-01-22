@@ -341,7 +341,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     return (
         <div className="h-full flex flex-col bg-slate-50 text-slate-800 animate-in slide-in-from-right duration-300 z-50">
             {/* Header Nav */}
-            <div className="flex items-center justify-between px-4 py-3 bg-white/95 backdrop-blur-md sticky top-0 z-10 border-b border-slate-200">
+            <div className="flex items-center justify-between px-4 py-3 bg-white/95 backdrop-blur-md sticky top-0 z-10 border-b border-slate-200 pt-safe">
                 <button 
                     onClick={isEditing ? () => setIsEditing(false) : onClose} 
                     className="flex items-center text-green-600 font-bold hover:opacity-70 transition-all active:scale-95 text-[15px]"
