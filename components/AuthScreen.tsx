@@ -226,7 +226,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
                                     />
                                 </div>
 
-                                {error && <p className="text-xs text-red-500 font-bold px-2">{error}</p>}
+                                    {error && <p className="text-xs text-red-500 font-bold px-2">{error}</p>}
                                 </div>
 
                                 <button 

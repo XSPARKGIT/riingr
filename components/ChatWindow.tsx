@@ -63,7 +63,7 @@ const ChatHeader: React.FC<{
 
     return (
         <div 
-            className="flex items-center justify-between p-2 sm:p-3 border-b border-slate-200 bg-white/95 backdrop-blur-md z-30 sticky top-0 cursor-pointer hover:bg-slate-50 transition-colors shrink-0 pt-safe"
+            className="flex items-center justify-between p-2 sm:p-3 border-b border-slate-200 bg-white/95 backdrop-blur-md z-30 sticky top-0 cursor-pointer hover:bg-slate-50 transition-colors shrink-0 pt-safe-sm"
             onClick={onClick}
         >
             <div className="flex items-center min-w-0">

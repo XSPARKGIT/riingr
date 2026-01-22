@@ -208,7 +208,7 @@ export const EditProfileSection: React.FC<{
 
     return (
         <div className="flex-1 flex flex-col h-full bg-[#f8f9fa] relative overflow-hidden min-h-0">
-            <div className="h-16 px-6 flex items-center justify-between bg-white/95 backdrop-blur-md border-b border-slate-200 sticky top-0 z-20 shrink-0 pt-safe">
+            <div className="h-16 px-6 flex items-center justify-between bg-white/95 backdrop-blur-md border-b border-slate-200 sticky top-0 z-20 shrink-0 pt-safe-sm">
                 <button onClick={onBack} className="flex items-center text-green-600 font-bold hover:opacity-70 transition-all text-[15px]">
                     <ArrowLeftIcon className="h-6 w-6 mr-1" />
                     <span>Back</span>

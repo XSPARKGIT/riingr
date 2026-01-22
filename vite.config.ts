@@ -6,18 +6,18 @@ const isCordova = process.env.CORDOVA_BUILD === 'true';
 
 export default defineConfig({
   base: isCordova ? './' : '/',
-  server: {
-    port: 3000,
-    host: '0.0.0.0',
-  },
-  plugins: [react()],
-  define: {
+      server: {
+        port: 3000,
+        host: '0.0.0.0',
+      },
+      plugins: [react()],
+      define: {
     'process.env.API_KEY': JSON.stringify(process.env.GEMINI_API_KEY || ''),
     'process.env.GEMINI_API_KEY': JSON.stringify(process.env.GEMINI_API_KEY || ''),
-  },
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, '.'),
+      },
+      resolve: {
+        alias: {
+          '@': path.resolve(__dirname, '.'),
     },
   },
   build: isCordova ? {
@@ -29,7 +29,7 @@ export default defineConfig({
         entryFileNames: 'assets/[name].js',
         chunkFileNames: 'assets/[name].js',
         assetFileNames: 'assets/[name].[ext]'
+        }
       }
-    }
   } : {}
 });

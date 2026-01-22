@@ -172,7 +172,7 @@ const App: React.FC = () => {
                 unsubscribeConversations = subscribeToConversations(currentUser.id, (firestoreConversations) => {
                     setConversations(prev => {
                         // Merge conversations, avoiding duplicates
-                        const existingMap = new Map(prev.map(c => [c.id, c]));
+                        const existingMap = new Map<string, Conversation>(prev.map(c => [c.id, c]));
                         
                         firestoreConversations.forEach(firestoreConvo => {
                             const existing = existingMap.get(firestoreConvo.id);
