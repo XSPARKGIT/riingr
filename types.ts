@@ -3,10 +3,13 @@ export type User = {
   id: string;
   name: string;
   avatar: string;
+  email?: string;
   isOnline?: boolean;
   username?: string;
   phone?: string;
   birthday?: string;
+  status?: string;
+  profileComplete?: boolean;
 };
 
 export type MessageStatus = 'sent' | 'delivered' | 'read';
@@ -46,9 +49,10 @@ export type Message = {
     type: string;
     url?: string; // Firebase Storage download URL
   };
-  syncStatus?: 'synced' | 'pending' | 'failed'; // For offline sync
+  syncStatus?: 'synced' | 'pending' | 'syncing' | 'failed'; // For offline sync
   readBy?: string[]; // Array of user IDs who read the message (for group chats)
   deliveredTo?: string[]; // Array of user IDs who received the message (for group chats)
+  updatedAt?: number; // Timestamp of last update for conflict resolution
 };
 
 export type ConversationType = 'dm' | 'group';
@@ -86,6 +90,17 @@ export type SyncQueueItem = {
   timestamp: number;
   retryCount: number;
   lastError?: string;
+  nextRetryAt?: number; // Timestamp for next retry (exponential backoff)
+  priority?: number; // Higher priority = sync first
 };
 
 export type SyncStatus = 'syncing' | 'synced' | 'offline' | 'error';
+
+export type SyncMetadata = {
+  conversationId: string;
+  lastSyncTimestamp: number;
+  lastSyncStatus: 'success' | 'error';
+  syncVersion: number;
+};
+
+export type ErrorCategory = 'network' | 'permission' | 'validation' | 'unknown';

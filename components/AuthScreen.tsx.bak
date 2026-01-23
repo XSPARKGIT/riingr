@@ -32,6 +32,9 @@ const validateEmail = (email: string): boolean => {
 };
 
 export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/7e32f517-5624-42ab-9318-b535cef884a6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AuthScreen.tsx:34',message:'AuthScreen component mounted',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C,D,E'})}).catch(()=>{});
+    // #endregion
     const [isSignUp, setIsSignUp] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -125,11 +128,17 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
     }, [username, isSignUp]);
 
     const handleSubmit = async (e: React.FormEvent) => {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/7e32f517-5624-42ab-9318-b535cef884a6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AuthScreen.tsx:117',message:'handleSubmit called',data:{isSignUp,email:email.length,password:password.length,username:username.length,name:name.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C'})}).catch(()=>{});
+        // #endregion
         e.preventDefault();
         setError(null);
         
         // Validate email format
         if (!validateEmail(email)) {
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/7e32f517-5624-42ab-9318-b535cef884a6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AuthScreen.tsx:122',message:'Email validation failed',data:{email},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+            // #endregion
             setError('Please enter a valid email address');
             return;
         }
@@ -176,7 +185,6 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
                     email: email,
                     avatar: meAvatar,
                     username: `@${cleanUsername}`,
-                    profileComplete: false,
                 });
             } else {
                 // Sign in existing user

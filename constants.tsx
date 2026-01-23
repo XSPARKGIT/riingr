@@ -6,25 +6,29 @@ import { meAvatar, aliceAvatar, bobAvatar, charlieAvatar } from './assets';
 // Define app icon path directly to avoid import issues
 const appIcon = '/assets/icon.png';
 
-export const Logo: React.FC<{className?: string}> = ({ className = '' }) => {
+export const Logo: React.FC<{className?: string; size?: 'sm' | 'lg'}> = ({ className = '', size = 'sm' }) => {
     const [imageError, setImageError] = React.useState(false);
+
+    const imageSizeClass = size === 'lg' ? 'h-20 w-20 sm:h-24 sm:w-24' : 'h-8 w-8 sm:h-10 sm:w-10';
+    const textSizeClass = size === 'lg' ? 'text-4xl sm:text-5xl' : 'text-lg sm:text-xl';
+    const gapClass = size === 'lg' ? 'gap-4' : 'gap-2';
     
     return (
-        <div className={`flex items-center gap-2 ${className}`}>
+        <div className={`flex items-center ${gapClass} ${className}`}>
             {!imageError && (
                 <img 
                     src={appIcon} 
                     alt="Riingr" 
-                    className="h-10 w-10 object-contain"
+                    className={`${imageSizeClass} object-contain`}
                     onError={() => {
                         console.warn('Logo image failed to load, using text only');
                         setImageError(true);
                     }}
                 />
             )}
-            <span className="text-lg font-bold text-slate-700">Riingr</span>
+            <span className={`${textSizeClass} font-bold text-slate-800 tracking-tight`}>Riingr</span>
         </div>
-);
+    );
 };
 
 export const MessengerIcon: React.FC<{className?: string}> = ({ className }) => (

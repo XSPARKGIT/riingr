@@ -231,7 +231,20 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
                         <div className="bg-slate-100 p-4 rounded-full mb-4">
                             <UsersIcon className="h-8 w-8 text-slate-300" />
                         </div>
-                        <p className="text-sm text-slate-400 font-medium">No contacts found</p>
+                        <p className="text-sm font-bold text-slate-700">
+                            {searchQuery ? 'No contacts match your search' : 'No contacts yet'}
+                        </p>
+                        <p className="text-xs text-slate-400 mt-2">
+                            {searchQuery ? 'Try another name or username.' : 'Add contacts to start chatting faster.'}
+                        </p>
+                        {!searchQuery && (
+                            <button
+                                onClick={() => setIsAddContactModalOpen(true)}
+                                className="mt-4 px-4 py-2 rounded-xl bg-green-600 text-white text-xs font-semibold shadow-lg shadow-green-100/50 hover:bg-green-700 transition-colors"
+                            >
+                                Add a contact
+                            </button>
+                        )}
                     </div>
                 )}
             </div>

@@ -86,50 +86,64 @@ export const RecentCallsView: React.FC<RecentCallsViewProps> = ({ calls, users }
             </div>
 
             <div className="flex-1 overflow-y-auto no-scrollbar py-1">
-                {callList.map(call => {
-                    const user = getUser(call.userId);
-                    if (!user) return null;
-                    const isMissed = call.type === 'missed';
-
-                    return (
-                        <div key={call.id} className="flex items-center px-4 py-3 hover:bg-slate-50 cursor-pointer transition-colors group">
-                            {isEditing && (
-                                <button 
-                                    onClick={() => handleDeleteCall(call.id)}
-                                    className="mr-3 flex-shrink-0 bg-red-500 rounded-full h-6 w-6 flex items-center justify-center animate-in slide-in-from-left-4 fade-in duration-200"
-                                >
-                                    <div className="w-3 h-0.5 bg-white rounded-full" />
-                                </button>
-                            )}
-                            <div className="h-12 w-12 flex-shrink-0 mr-4">
-                                <img 
-                                    className="h-full w-full rounded-full object-cover border border-slate-100" 
-                                    src={user.avatar} 
-                                    alt={user.name} 
-                                />
+                {callList.length === 0 ? (
+                    <div className="h-full flex items-center justify-center px-6 py-10 text-center">
+                        <div className="max-w-xs">
+                            <div className="h-14 w-14 rounded-full bg-green-50 text-green-600 flex items-center justify-center mx-auto mb-4">
+                                <CallIcon className="h-6 w-6" />
                             </div>
-                            <div className="flex-1 min-w-0 border-b border-slate-50 pb-3 group-last:border-0">
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        <p className={`text-[15px] font-bold truncate ${isMissed ? 'text-red-500' : 'text-slate-800'}`}>
-                                            {user.name} {call.count && call.count > 1 ? `(${call.count})` : ''}
-                                        </p>
-                                        <div className="flex items-center mt-0.5">
-                                            {getCallIcon(call.type)}
-                                            <p className="text-[12px] text-slate-400 font-medium">
-                                                {call.type === 'missed' ? 'Missed' : call.type.charAt(0).toUpperCase() + call.type.slice(1)}
-                                                {call.duration ? ` (${call.duration})` : ''}
+                            <p className="text-sm font-bold text-slate-700">No calls yet</p>
+                            <p className="text-xs text-slate-400 mt-2">
+                                Start a call to see your recent activity here.
+                            </p>
+                        </div>
+                    </div>
+                ) : (
+                    callList.map(call => {
+                        const user = getUser(call.userId);
+                        if (!user) return null;
+                        const isMissed = call.type === 'missed';
+
+                        return (
+                            <div key={call.id} className="flex items-center px-4 py-3 hover:bg-slate-50 cursor-pointer transition-colors group">
+                                {isEditing && (
+                                    <button 
+                                        onClick={() => handleDeleteCall(call.id)}
+                                        className="mr-3 flex-shrink-0 bg-red-500 rounded-full h-6 w-6 flex items-center justify-center animate-in slide-in-from-left-4 fade-in duration-200"
+                                    >
+                                        <div className="w-3 h-0.5 bg-white rounded-full" />
+                                    </button>
+                                )}
+                                <div className="h-12 w-12 flex-shrink-0 mr-4">
+                                    <img 
+                                        className="h-full w-full rounded-full object-cover border border-slate-100" 
+                                        src={user.avatar} 
+                                        alt={user.name} 
+                                    />
+                                </div>
+                                <div className="flex-1 min-w-0 border-b border-slate-50 pb-3 group-last:border-0">
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <p className={`text-[15px] font-bold truncate ${isMissed ? 'text-red-500' : 'text-slate-800'}`}>
+                                                {user.name} {call.count && call.count > 1 ? `(${call.count})` : ''}
                                             </p>
+                                            <div className="flex items-center mt-0.5">
+                                                {getCallIcon(call.type)}
+                                                <p className="text-[12px] text-slate-400 font-medium">
+                                                    {call.type === 'missed' ? 'Missed' : call.type.charAt(0).toUpperCase() + call.type.slice(1)}
+                                                    {call.duration ? ` (${call.duration})` : ''}
+                                                </p>
+                                            </div>
                                         </div>
+                                        <p className="text-[12px] text-slate-400 font-medium pt-0.5">
+                                            {formatTimestamp(call.timestamp)}
+                                        </p>
                                     </div>
-                                    <p className="text-[12px] text-slate-400 font-medium pt-0.5">
-                                        {formatTimestamp(call.timestamp)}
-                                    </p>
                                 </div>
                             </div>
-                        </div>
-                    );
-                })}
+                        );
+                    })
+                )}
             </div>
 
             {/* Group Call Modal */}

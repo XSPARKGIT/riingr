@@ -22,6 +22,26 @@
       .pt-safe-sm {
         padding-top: calc(env(safe-area-inset-top) * 0.5 + 8px);
       }
+      @keyframes fadeSlideIn {
+        from {
+          opacity: 0;
+          transform: translateX(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+      @keyframes fadeInDown {
+        from {
+          opacity: 0;
+          transform: translateY(-10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
       body {
         margin: 0;
         padding: 0;

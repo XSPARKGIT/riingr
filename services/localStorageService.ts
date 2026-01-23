@@ -82,6 +82,18 @@ export const initLocalDB = async (): Promise<IDBPDatabase<RingrDB>> => {
 };
 
 /**
+ * Clear all local data (conversations, messages, sync queue, metadata)
+ * Used on logout to prevent data leakage between users
+ */
+export const clearAllLocalData = async (): Promise<void> => {
+  const db = await initLocalDB();
+  await db.clear('conversations');
+  await db.clear('messages');
+  await db.clear('syncQueue');
+  await db.clear('metadata');
+};
+
+/**
  * Message operations
  */
 export const saveMessageLocally = async (
@@ -157,10 +169,19 @@ export const saveConversationLocally = async (
   });
 };
 
-export const getConversationsLocally = async (): Promise<Conversation[]> => {
+export const getConversationsLocally = async (userId?: string): Promise<Conversation[]> => {
   const db = await initLocalDB();
-  const conversations = await db.getAll('conversations');
-  return conversations.map(({ lastSync, ...conversation }) => conversation);
+  const allConversations = await db.getAll('conversations');
+  const conversations = allConversations.map(({ lastSync, ...conversation }) => conversation);
+  
+  // Filter by user ID if provided
+  if (userId) {
+    return conversations.filter(conversation => 
+      conversation.participants?.some(p => p.id === userId)
+    );
+  }
+  
+  return conversations;
 };
 
 export const updateConversationLocally = async (
@@ -248,4 +269,38 @@ export const setConnectionStatus = async (
 ): Promise<void> => {
   const db = await initLocalDB();
   await db.put('metadata', status, 'connectionStatus');
+};
+
+/**
+ * Sync metadata operations
+ */
+export const getSyncMetadata = async (conversationId: string): Promise<{ lastSyncTimestamp: number; lastSyncStatus: 'success' | 'error'; syncVersion: number } | null> => {
+  const db = await initLocalDB();
+  const metadata = await db.get('metadata', `sync_${conversationId}`);
+  return metadata || null;
+};
+
+export const setSyncMetadata = async (
+  conversationId: string,
+  metadata: { lastSyncTimestamp: number; lastSyncStatus: 'success' | 'error'; syncVersion: number }
+): Promise<void> => {
+  const db = await initLocalDB();
+  await db.put('metadata', metadata, `sync_${conversationId}`);
+};
+
+export const getLastSyncTimestampForConversation = async (conversationId: string): Promise<number> => {
+  const metadata = await getSyncMetadata(conversationId);
+  return metadata?.lastSyncTimestamp || 0;
+};
+
+export const setLastSyncTimestampForConversation = async (
+  conversationId: string,
+  timestamp: number
+): Promise<void> => {
+  const existing = await getSyncMetadata(conversationId);
+  await setSyncMetadata(conversationId, {
+    lastSyncTimestamp: timestamp,
+    lastSyncStatus: 'success',
+    syncVersion: (existing?.syncVersion || 0) + 1,
+  });
 };

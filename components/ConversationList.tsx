@@ -42,7 +42,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
     const [searchQuery, setSearchQuery] = useState('');
     const [activeSection, setActiveSection] = useState<NavSection>('chats');
     const [isNewChatMenuOpen, setIsNewChatMenuOpen] = useState(false);
-    const [recentCalls] = useState<Call[]>(INITIAL_CALLS);
+    const [recentCalls] = useState<Call[]>([]);
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, conversation: Conversation } | null>(null);
     const menuRef = useRef<HTMLDivElement>(null);
 
@@ -162,15 +162,31 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                     </div>
 
                     <nav className="flex-1 overflow-y-auto no-scrollbar">
-                        {filteredConversations.map(convo => (
-                            <ConversationListItem 
-                                key={convo.id} 
-                                conversation={convo}
-                                isSelected={convo.id === selectedConversationId}
-                                onSelect={onSelectConversation}
-                                onContextMenu={handleContextMenu}
-                            />
-                        ))}
+                        {filteredConversations.length > 0 ? (
+                            filteredConversations.map(convo => (
+                                <ConversationListItem 
+                                    key={convo.id} 
+                                    conversation={convo}
+                                    isSelected={convo.id === selectedConversationId}
+                                    onSelect={onSelectConversation}
+                                    onContextMenu={handleContextMenu}
+                                />
+                            ))
+                        ) : (
+                            <div className="h-full flex items-center justify-center px-6 py-10 text-center">
+                                <div className="max-w-xs">
+                                    <div className="h-14 w-14 rounded-full bg-green-50 text-green-600 flex items-center justify-center mx-auto mb-4">
+                                        <MessageIcon className="h-6 w-6" />
+                                    </div>
+                                    <p className="text-sm font-bold text-slate-700">
+                                        {searchQuery ? 'No chats match your search' : 'No chats yet'}
+                                    </p>
+                                    <p className="text-xs text-slate-400 mt-2">
+                                        {searchQuery ? 'Try another name or clear the search.' : 'Start a new chat to see your messages here.'}
+                                    </p>
+                                </div>
+                            </div>
+                        )}
                     </nav>
                 </>
             ) : activeSection === 'contacts' ? (

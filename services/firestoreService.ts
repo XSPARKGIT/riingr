@@ -25,6 +25,8 @@ export const createUserProfile = async (
     email: string;
     avatar?: string;
     username?: string;
+    status?: string;
+    profileComplete?: boolean;
   }
 ): Promise<void> => {
   try {
@@ -83,6 +85,8 @@ export const getUserProfile = async (userId: string): Promise<User | null> => {
         username: data.username,
         phone: data.phone,
         isOnline: data.isOnline,
+        status: data.status,
+        profileComplete: data.profileComplete,
       } as User;
     }
     

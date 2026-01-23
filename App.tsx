@@ -3,6 +3,7 @@ import { ConversationList } from './components/ConversationList';
 import { ChatWindow } from './components/ChatWindow';
 import { Header } from './components/Header';
 import { AuthScreen } from './components/AuthScreen';
+import { OnboardingProfile } from './components/OnboardingProfile';
 import { 
     EditProfileSection, 
     SupportPopup,
@@ -22,10 +23,10 @@ import {
 } from './components/SettingsView';
 import { getGeminiResponse } from './services/geminiService';
 import { logout as firebaseLogout } from './services/firebaseService';
-import { getUserContacts, getOrCreateConversation, subscribeToConversations } from './services/firestoreService';
+import { getUserContacts, getOrCreateConversation, subscribeToConversations, getUserProfile } from './services/firestoreService';
 import { sendMessage as syncSendMessage, startBackgroundSync, stopBackgroundSync, syncAllFromFirestore, subscribeToMessages } from './services/syncService';
 import { initConnectionListener } from './services/connectionService';
-import { getConversationsLocally, getMessagesLocally, getSyncQueueCount } from './services/localStorageService';
+import { getConversationsLocally, getMessagesLocally, getSyncQueueCount, clearAllLocalData } from './services/localStorageService';
 import type { Conversation, Message, User, PollOption } from './types';
 import { INITIAL_CONVERSATIONS, MessengerIcon } from './constants';
 import { meAvatar } from './assets';
@@ -34,14 +35,9 @@ const AUTH_KEY = 'ringr_is_authenticated';
 const USER_KEY = 'ringr_current_user';
 
 const App: React.FC = () => {
-    const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-        return localStorage.getItem(AUTH_KEY) === 'true';
-    });
+    const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
 
-    const [conversations, setConversations] = useState<Conversation[]>(() => {
-        const authed = localStorage.getItem(AUTH_KEY) === 'true';
-        return authed ? [] : INITIAL_CONVERSATIONS;
-    });
+    const [conversations, setConversations] = useState<Conversation[]>(INITIAL_CONVERSATIONS);
     const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [replyingTo, setReplyingTo] = useState<Message | null>(null);
@@ -51,18 +47,16 @@ const App: React.FC = () => {
     const [isOnline, setIsOnline] = useState<boolean>(typeof navigator !== 'undefined' ? navigator.onLine : true);
     const [syncQueueCount, setSyncQueueCount] = useState<number>(0);
     const [isSyncing, setIsSyncing] = useState<boolean>(false);
+    const [isProfileLoading, setIsProfileLoading] = useState<boolean>(false);
     const prevSyncQueueCountRef = useRef<number>(0);
     const selectedConversationIdRef = useRef<string | null>(selectedConversationId);
     
-    const [currentUser, setCurrentUser] = useState<User | null>(() => {
-        const saved = localStorage.getItem(USER_KEY);
-        return saved ? JSON.parse(saved) : {
-            id: 'me',
-            name: 'Riingr User',
-            avatar: meAvatar,
-            phone: '',
-            username: '@user'
-        };
+    const [currentUser, setCurrentUser] = useState<User | null>({
+        id: 'me',
+        name: 'Riingr User',
+        avatar: meAvatar,
+        phone: '',
+        username: '@user',
     });
 
     // Keep ref in sync with selectedConversationId
@@ -83,6 +77,37 @@ const App: React.FC = () => {
             }
         };
         loadContacts();
+    }, [isAuthenticated, currentUser?.id]);
+
+    // Load user profile after authentication to check onboarding status
+    useEffect(() => {
+        if (!isAuthenticated || !currentUser?.id || currentUser.id === 'me') {
+            return;
+        }
+
+        let isActive = true;
+
+        const loadProfile = async () => {
+            setIsProfileLoading(true);
+            try {
+                const profile = await getUserProfile(currentUser.id);
+                if (profile && isActive) {
+                    setCurrentUser(prev => (prev ? { ...prev, ...profile } : profile));
+                }
+            } catch (error) {
+                console.error('Error loading user profile:', error);
+            } finally {
+                if (isActive) {
+                    setIsProfileLoading(false);
+                }
+            }
+        };
+
+        loadProfile();
+
+        return () => {
+            isActive = false;
+        };
     }, [isAuthenticated, currentUser?.id]);
 
     // Initialize connection monitoring, background sync, and load local data
@@ -199,8 +224,8 @@ const App: React.FC = () => {
         // Load local data on startup
         const loadLocalData = async () => {
             try {
-                // Load conversations from local storage
-                const localConversations = await getConversationsLocally();
+                // Load conversations from local storage - filtered by current user
+                const localConversations = await getConversationsLocally(currentUser.id);
                 
                 if (localConversations.length > 0) {
                     // Load messages for each conversation
@@ -219,8 +244,8 @@ const App: React.FC = () => {
                 if (typeof navigator !== 'undefined' && navigator.onLine) {
                     try {
                         await syncAllFromFirestore(currentUser.id);
-                        // Reload after sync
-                        const syncedConversations = await getConversationsLocally();
+                        // Reload after sync - filtered by current user
+                        const syncedConversations = await getConversationsLocally(currentUser.id);
                         const conversationsWithMessages = await Promise.all(
                             syncedConversations.map(async (convo) => {
                                 const messages = await getMessagesLocally(convo.id);
@@ -285,7 +310,7 @@ const App: React.FC = () => {
             username: `@${emailName}`
         };
         setCurrentUser(user);
-        setConversations([]); // Clear placeholders on login to avoid stale data
+        setConversations([]); // Clear conversations on login to prevent showing other users' data
         setIsAuthenticated(true);
         localStorage.setItem(AUTH_KEY, 'true');
         localStorage.setItem(USER_KEY, JSON.stringify(user));
@@ -296,19 +321,30 @@ const App: React.FC = () => {
             try {
                 stopBackgroundSync(); // Stop background sync
                 await firebaseLogout();
+                
+                // Clear all local data to prevent data leakage between users
+                await clearAllLocalData();
+                
                 setIsAuthenticated(false);
+                setConversations([]); // Clear conversations from state
                 localStorage.removeItem(AUTH_KEY);
                 localStorage.removeItem(USER_KEY);
             } catch (error) {
                 console.error('Logout error:', error);
                 stopBackgroundSync(); // Stop even if logout fails
                 // Still clear local state even if Firebase logout fails
-            setIsAuthenticated(false);
-            localStorage.removeItem(AUTH_KEY);
-            localStorage.removeItem(USER_KEY);
+                await clearAllLocalData();
+                setIsAuthenticated(false);
+                setConversations([]); // Clear conversations from state
+                localStorage.removeItem(AUTH_KEY);
+                localStorage.removeItem(USER_KEY);
             }
         }
     };
+
+    const handleOnboardingComplete = useCallback((updates: Partial<User>) => {
+        setCurrentUser(prev => (prev ? { ...prev, ...updates, profileComplete: true } : prev));
+    }, []);
 
     const handleUpdateMessage = useCallback((messageId: string, updates: Partial<Message>) => {
         setConversations(prev => prev.map(convo => {
@@ -681,7 +717,25 @@ const App: React.FC = () => {
         }
     };
 
+    const needsOnboarding = !!(
+        isAuthenticated &&
+        !isProfileLoading &&
+        currentUser?.id &&
+        currentUser.id !== 'me' &&
+        currentUser.profileComplete !== true
+    );
+
     if (!isAuthenticated) return <AuthScreen onLogin={handleLogin} />;
+    if (isProfileLoading) {
+        return (
+            <div className="h-[100dvh] w-screen flex items-center justify-center bg-slate-50">
+                <div className="text-sm font-semibold text-slate-500">Loading your profile...</div>
+            </div>
+        );
+    }
+    if (needsOnboarding) {
+        return <OnboardingProfile user={currentUser as User} onComplete={handleOnboardingComplete} />;
+    }
 
     return (
         <div className="h-[100dvh] w-screen flex flex-col font-sans antialiased overflow-hidden bg-white">
