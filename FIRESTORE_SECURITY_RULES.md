@@ -25,8 +25,9 @@ service cloud.firestore {
     
     // Users Collection
     match /users/{userId} {
-      // Anyone authenticated can read user profiles (for search, contacts)
-      allow read: if isAuthenticated();
+      // Allow unauthenticated reads for username availability checks during sign-up
+      // Authenticated users can read user profiles (for search, contacts)
+      allow read: if true; // Allow both authenticated and unauthenticated reads
       
       // Users can only create/update/delete their own profile
       allow create: if isAuthenticated() && request.auth.uid == userId;
@@ -97,8 +98,10 @@ service cloud.firestore {
 ## Rule Explanations
 
 ### Users Collection
-- **Read**: Any authenticated user can read user profiles (needed for search and displaying contact info)
-- **Create/Update/Delete**: Users can only modify their own profile
+- **Read**: Both authenticated and unauthenticated users can read user profiles
+  - Unauthenticated reads are allowed for username availability checks during sign-up
+  - Authenticated users can read profiles for search and displaying contact info
+- **Create/Update/Delete**: Users can only modify their own profile (authentication required)
 
 ### Conversations Collection
 - **Read/Update/Delete**: Only participants can access conversations
@@ -131,7 +134,9 @@ service cloud.firestore {
    }
    ```
 
-2. **Authentication Required**: All operations require authentication (`request.auth != null`)
+2. **Authentication**: 
+   - Read operations on users collection do NOT require authentication (needed for username availability checks during sign-up)
+   - All other operations (create, update, delete) require authentication
 
 3. **Data Structure**: The rules assume the following Firestore structure:
    - `users/{userId}` - User profiles
@@ -154,8 +159,9 @@ After publishing the rules:
 ## Troubleshooting
 
 If you get "Missing or insufficient permissions" errors:
-1. Verify the user is authenticated (`request.auth != null`)
-2. Verify the conversation has a `participants` array
-3. Verify the authenticated user's ID is in the `participants` array
-4. Check that the conversation document exists before trying to access messages
-5. Verify the message `senderId` matches `request.auth.uid` when creating messages
+1. For username availability checks: The rules now allow unauthenticated reads, so this should work during sign-up
+2. For conversations: Verify the user is authenticated (`request.auth != null`)
+3. Verify the conversation has a `participants` array
+4. Verify the authenticated user's ID is in the `participants` array
+5. Check that the conversation document exists before trying to access messages
+6. Verify the message `senderId` matches `request.auth.uid` when creating messages

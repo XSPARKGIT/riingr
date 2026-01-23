@@ -3,11 +3,15 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "main": "electron/dist/main.cjs",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "build:cordova": "CORDOVA_BUILD=true vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "electron:build": "cd electron && tsc && mv dist/main.js dist/main.cjs",
+    "electron:dev": "npm run electron:build && electron .",
+    "electron:dist": "npm run electron:build && electron-builder"
   },
   "dependencies": {
     "@google/genai": "latest",
@@ -17,13 +21,44 @@
     "react-dom": "18.2.0"
   },
   "devDependencies": {
-    "@types/node": "^22.14.0",
+    "@types/node": "^22.19.7",
     "@vitejs/plugin-react": "^5.0.0",
     "autoprefixer": "^10.4.23",
+    "electron": "^40.0.0",
+    "electron-builder": "^26.4.0",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.17",
     "tailwindcss-animate": "^1.0.7",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
+  },
+  "build": {
+    "appId": "com.xschatapp.riingr",
+    "productName": "Riingr",
+    "files": [
+      "electron/dist/**/*",
+      "assets/**/*"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        }
+      ],
+      "category": "public.app-category.social-networking",
+      "icon": "assets/icons/mac/icon.icns",
+      "extendInfo": {
+        "CFBundleName": "Riingr",
+        "CFBundleDisplayName": "Riingr",
+        "LSMinimumSystemVersion": "10.13.0"
+      },
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "identity": null
+    }
   }
 }

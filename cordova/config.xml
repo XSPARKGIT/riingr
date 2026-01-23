@@ -14,7 +14,7 @@
   <preference name="WKWebViewOnly" value="true" />
 
   <platform name="ios">
-    <icon src="resources/icon.png" width="1024" height="1024" />
+    <icon src="../assets/icon.png" width="1024" height="1024" />
     <preference name="StatusBarOverlaysWebView" value="false" />
     <preference name="StatusBarStyle" value="default" />
     <config-file parent="NSAppTransportSecurity" target="*-Info.plist">

@@ -48,11 +48,11 @@ const renderFatal = (error: unknown) => {
 const bootstrap = async () => {
   try {
     const { default: App } = await import('./App');
-    root.render(
-      <React.StrictMode>
-        <App />
-      </React.StrictMode>
-    );
+root.render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
     console.log('🚀 Riingr Messenger app starting...');
   } catch (error) {
     renderFatal(error);

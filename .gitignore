@@ -33,3 +33,7 @@ npm-cache
 cordova/platforms
 cordova/plugins
 cordova/www
+
+# Electron generated folders
+electron/dist
+release

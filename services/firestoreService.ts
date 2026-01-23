@@ -97,22 +97,26 @@ export const getUserProfile = async (userId: string): Promise<User | null> => {
  * Check if username is available
  */
 export const checkUsernameAvailability = async (username: string): Promise<boolean> => {
+  if (!username || username.length < 3) {
+    return false;
+  }
+  
+  // Remove @ if user included it
+  const cleanUsername = username.startsWith('@') ? username.slice(1) : username;
+  
   try {
-    if (!username || username.length < 3) {
-      return false;
-    }
-    
-    // Remove @ if user included it
-    const cleanUsername = username.startsWith('@') ? username.slice(1) : username;
-    
     const usersRef = collection(db, 'users');
     const q = query(usersRef, where('username', '==', `@${cleanUsername}`));
     const snapshot = await getDocs(q);
     
-    return snapshot.empty; // Available if no results found
+    // Available if no results found
+    const isAvailable = snapshot.empty;
+    console.log(`Username check: @${cleanUsername} is ${isAvailable ? 'available' : 'taken'}`);
+    return isAvailable;
   } catch (error) {
     console.error('Error checking username availability:', error);
-    return false;
+    // Throw error instead of returning false, so UI can show proper error message
+    throw new Error('Failed to check username availability. Please try again.');
   }
 };
 
