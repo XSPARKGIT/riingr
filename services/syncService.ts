@@ -792,12 +792,25 @@ const syncConversationsFromFirestore = async (userId: string): Promise<void> => 
   for (const docSnap of snapshot.docs) {
     const data = docSnap.data();
     
+    console.log('🔍 [syncConversations] Processing conversation:', {
+      conversationId: docSnap.id,
+      participantIds: data.participants,
+      currentUserId: userId,
+    });
+    
     // Fetch participant details
     const participants = await Promise.all(
       (data.participants || []).map(async (participantId: string) => {
         const userDoc = await getDoc(doc(db, 'users', participantId));
         if (userDoc.exists()) {
           const userData = userDoc.data();
+          console.log('✅ [syncConversations] Fetched participant data:', {
+            conversationId: docSnap.id,
+            participantId,
+            name: userData.name,
+            email: userData.email,
+            username: userData.username,
+          });
           // Properly map Firestore data to User type
           return {
             id: participantId,
@@ -811,6 +824,10 @@ const syncConversationsFromFirestore = async (userId: string): Promise<void> => 
             profileComplete: userData.profileComplete,
           } as User;
         }
+        console.error('❌ [syncConversations] User document not found:', {
+          conversationId: docSnap.id,
+          participantId,
+        });
         return { 
           id: participantId, 
           name: 'Unknown User',
@@ -821,6 +838,11 @@ const syncConversationsFromFirestore = async (userId: string): Promise<void> => 
         } as User;
       })
     );
+
+    console.log('📋 [syncConversations] All participants fetched:', {
+      conversationId: docSnap.id,
+      participants: participants.map(p => ({ id: p.id, name: p.name, email: p.email })),
+    });
 
     const conversation: Conversation = {
       id: docSnap.id,

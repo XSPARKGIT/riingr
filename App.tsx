@@ -90,9 +90,17 @@ const App: React.FC = () => {
         const loadProfile = async () => {
             setIsProfileLoading(true);
             try {
+                console.log('🔍 [App.tsx] Loading profile for user ID:', currentUser.id);
                 const profile = await getUserProfile(currentUser.id);
+                console.log('✅ [App.tsx] Profile loaded from Firestore:', {
+                    id: profile?.id,
+                    name: profile?.name,
+                    email: profile?.email,
+                    username: profile?.username,
+                });
                 if (profile && isActive) {
                     setCurrentUser(prev => (prev ? { ...prev, ...profile } : profile));
+                    console.log('✅ [App.tsx] currentUser updated with profile data');
                 }
             } catch (error) {
                 console.error('Error loading user profile:', error);
@@ -852,6 +860,12 @@ const App: React.FC = () => {
 
     const renderSettingsDetail = () => {
         const onBack = () => handleSelectSettings(null);
+        console.log('🔍 [App.tsx] Rendering settings detail, currentUser:', {
+            id: currentUser?.id,
+            name: currentUser?.name,
+            email: currentUser?.email,
+            category: settingsCategory,
+        });
         switch (settingsCategory) {
             case 'profile': return <EditProfileSection user={currentUser as User} onBack={onBack} onLogout={handleLogout} />;
             case 'general': return <GeneralSettingsView onBack={onBack} />;

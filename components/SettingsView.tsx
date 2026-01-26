@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { User } from '../types';
 import { 
     SettingsIcon, 
@@ -202,10 +202,33 @@ export const EditProfileSection: React.FC<{
     onBack: () => void;
     onLogout: () => void;
 }> = ({ user, onBack, onLogout }) => {
-    const nameParts = user.name.split(' ');
+    // Debug logging to see what user data is received
+    console.log('🔍 [EditProfileSection] Component rendered with user:', {
+        id: user?.id,
+        name: user?.name,
+        email: user?.email,
+        username: user?.username,
+        status: user?.status,
+        avatar: user?.avatar,
+    });
+
+    const nameParts = user.name ? user.name.split(' ') : [''];
     const [firstName, setFirstName] = useState(nameParts[0] || '');
     const [lastName, setLastName] = useState(nameParts.slice(1).join(' ') || '');
     const [bio, setBio] = useState(user.status || 'A few words about you');
+
+    // Update form fields when user prop changes
+    useEffect(() => {
+        console.log('🔄 [EditProfileSection] User prop updated:', {
+            id: user?.id,
+            name: user?.name,
+            email: user?.email,
+        });
+        const nameParts = user.name ? user.name.split(' ') : [''];
+        setFirstName(nameParts[0] || '');
+        setLastName(nameParts.slice(1).join(' ') || '');
+        setBio(user.status || 'A few words about you');
+    }, [user.id, user.name, user.status]);
 
     return (
         <div className="flex-1 flex flex-col h-full bg-[#f8f9fa] relative overflow-hidden min-h-0">

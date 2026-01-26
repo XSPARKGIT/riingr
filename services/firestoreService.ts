@@ -506,9 +506,17 @@ export const subscribeToConversations = (
   return onSnapshot(q, async (snapshot) => {
     const conversations: Conversation[] = [];
     
+    console.log('🔍 [subscribeToConversations] Received snapshot with', snapshot.docs.length, 'conversations for user:', userId);
+    
     for (const docSnap of snapshot.docs) {
       try {
         const data = docSnap.data();
+        
+        console.log('🔍 [subscribeToConversations] Processing conversation:', {
+          conversationId: docSnap.id,
+          participantIds: data.participants,
+          currentUserId: userId,
+        });
         
         // Fetch participant details
         const participants = await Promise.all(
@@ -517,6 +525,13 @@ export const subscribeToConversations = (
               const userDoc = await getDoc(doc(db, 'users', participantId));
               if (userDoc.exists()) {
                 const userData = userDoc.data();
+                console.log('✅ [subscribeToConversations] Fetched participant data:', {
+                  conversationId: docSnap.id,
+                  participantId,
+                  name: userData.name,
+                  email: userData.email,
+                  username: userData.username,
+                });
                 return {
                   id: participantId,
                   name: userData.name || 'Unknown User',
@@ -525,11 +540,17 @@ export const subscribeToConversations = (
                   username: userData.username,
                   phone: userData.phone,
                   isOnline: userData.isOnline,
+                  status: userData.status,
+                  profileComplete: userData.profileComplete,
                 } as User;
               }
             } catch (error) {
-              console.error(`Error fetching participant ${participantId}:`, error);
+              console.error(`❌ [subscribeToConversations] Error fetching participant ${participantId}:`, error);
             }
+            console.error('❌ [subscribeToConversations] User document not found:', {
+              conversationId: docSnap.id,
+              participantId,
+            });
             return {
               id: participantId,
               name: 'Unknown User',
@@ -540,6 +561,11 @@ export const subscribeToConversations = (
             } as User;
           })
         );
+
+        console.log('📋 [subscribeToConversations] All participants fetched:', {
+          conversationId: docSnap.id,
+          participants: participants.map(p => ({ id: p.id, name: p.name, email: p.email })),
+        });
 
         const conversation: Conversation = {
           id: docSnap.id,

@@ -41,7 +41,15 @@ export const ConversationListItem: React.FC<ConversationListItemProps> = ({ conv
     );
     const lastMessage = conversation.messages[conversation.messages.length - 1];
 
-    if (!otherParticipant) return null;
+    // Debug logging to identify data issues
+    if (!otherParticipant) {
+        console.error('❌ No other participant found for conversation:', {
+            conversationId: conversation.id,
+            participants: conversation.participants,
+            currentUserId,
+        });
+        return null;
+    }
 
     const time = lastMessage ? new Date(lastMessage.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
     

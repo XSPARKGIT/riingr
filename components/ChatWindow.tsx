@@ -29,10 +29,19 @@ const ChatHeader: React.FC<{
     onBack?: () => void,
     onClick: () => void,
     onSummarize: () => void,
-    isSummarizing: boolean
-}> = ({ conversation, onBack, onClick, onSummarize, isSummarizing }) => {
+    isSummarizing: boolean,
+    currentUserId?: string
+}> = ({ conversation, onBack, onClick, onSummarize, isSummarizing, currentUserId }) => {
     const isGroup = conversation.type === 'group';
-    const otherParticipant = conversation.participants.find(p => p.id !== 'me');
+    const otherParticipant = conversation.participants.find(p => p.id !== 'me' && p.id !== currentUserId);
+
+    // Debug logging
+    console.log('🔍 ChatHeader participant data:', {
+        conversationId: conversation.id,
+        currentUserId,
+        participants: conversation.participants.map(p => ({ id: p.id, name: p.name, email: p.email })),
+        otherParticipant: otherParticipant ? { id: otherParticipant.id, name: otherParticipant.name, email: otherParticipant.email } : null,
+    });
 
     const renderAvatar = () => {
         if (isGroup) {
@@ -336,6 +345,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 onClick={() => setIsProfileOpen(true)}
                 onSummarize={handleSummarize}
                 isSummarizing={isSummarizing}
+                currentUserId={currentUserId}
             />
 
             {/* Pinned Message Banner */}
