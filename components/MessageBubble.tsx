@@ -66,9 +66,18 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         ? `${isFirstInGroup ? 'rounded-tr-2xl' : 'rounded-tr-sm'} ${isLastInGroup ? 'rounded-br-2xl' : 'rounded-br-sm'} rounded-l-2xl`
         : `${isFirstInGroup ? 'rounded-tl-2xl' : 'rounded-tl-sm'} ${isLastInGroup ? 'rounded-bl-2xl' : 'rounded-bl-sm'} rounded-r-2xl`;
 
-    const bubbleClasses = isOwnMessage
-        ? `bg-green-600 text-white ${radiusClasses}`
-        : `bg-white text-slate-800 ${radiusClasses} border border-slate-100`;
+    // Check if this is a sticker (URL contains 'sticker' or comes from sticker endpoint)
+    const isSticker = message.imageUrl && (
+        message.imageUrl.includes('/stickers/') || 
+        message.imageUrl.includes('sticker') ||
+        (message.imageUrl.includes('klipy.com') && !message.text && !message.imageUrl.includes('/gifs/'))
+    );
+
+    const bubbleClasses = isSticker
+        ? '' // No bubble background for stickers
+        : isOwnMessage
+            ? `bg-green-600 text-white ${radiusClasses}`
+            : `bg-white text-slate-800 ${radiusClasses} border border-slate-100`;
 
     // Calculate total votes for the poll
     const totalVotes = message.poll?.options.reduce((acc, opt) => acc + opt.votes, 0) || 0;
@@ -94,7 +103,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     </div>
                 )}
 
-                <div className={`shadow-sm flex flex-col relative min-w-0 ${bubbleClasses}`}>
+                <div className={`${isSticker ? '' : 'shadow-sm'} flex flex-col relative min-w-0 ${bubbleClasses}`}>
                     {replyToMessage && (
                         <div 
                             onClick={(e) => { e.stopPropagation(); onScrollToMessage?.(replyToMessage.id); }}
@@ -107,7 +116,25 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     
                     {/* Render Image */}
                     {message.imageUrl && (
-                        <div className="p-1 shrink-0"><img src={message.imageUrl} className="rounded-xl w-full max-h-80 object-cover" alt="Shared media" /></div>
+                        isSticker ? (
+                            // Stickers: no bubble background, smaller size
+                            <div className="p-0 shrink-0">
+                                <img 
+                                    src={message.imageUrl} 
+                                    className="rounded-lg w-32 h-32 sm:w-40 sm:h-40 object-contain" 
+                                    alt="Sticker" 
+                                />
+                            </div>
+                        ) : (
+                            // GIFs and regular images: keep existing styling
+                            <div className="p-1 shrink-0">
+                                <img 
+                                    src={message.imageUrl} 
+                                    className="rounded-xl w-full max-h-80 object-cover" 
+                                    alt="Shared media" 
+                                />
+                            </div>
+                        )
                     )}
 
                     {/* Render Location */}
@@ -228,8 +255,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                         </div>
                     )}
 
-                    <div className={`flex items-center justify-end px-3 pb-1.5 -mt-2 space-x-1 shrink-0 ${isOwnMessage ? 'text-white/70' : 'text-slate-400'}`}>
-                        {message.isStarred && <StarIcon className={`h-2.5 w-2.5 sm:h-3 sm:w-3 shrink-0 ${isOwnMessage ? 'text-white/60' : 'text-yellow-400'}`} />}
+                    <div className={`flex items-center justify-end ${isSticker ? 'px-0 pb-1 -mt-1' : 'px-3 pb-1.5 -mt-2'} space-x-1 shrink-0 ${isSticker ? 'text-slate-500' : (isOwnMessage ? 'text-white/70' : 'text-slate-400')}`}>
+                        {message.isStarred && <StarIcon className={`h-2.5 w-2.5 sm:h-3 sm:w-3 shrink-0 ${isSticker ? 'text-yellow-400' : (isOwnMessage ? 'text-white/60' : 'text-yellow-400')}`} />}
                         <span className="text-[8px] sm:text-[9px] font-black uppercase shrink-0">{time}</span>
                         {isOwnMessage && (
                             <div className="flex items-center shrink-0 space-x-0.5">

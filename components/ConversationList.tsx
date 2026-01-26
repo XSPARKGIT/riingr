@@ -6,6 +6,7 @@ import { ContactsView } from './ContactsView';
 import { RecentCallsView } from './RecentCallsView';
 import { SettingsSidebar } from './SettingsView';
 import { ConversationContextMenu } from './ConversationContextMenu';
+import { GroupCreationModal } from './GroupCreationModal';
 import { UsersIcon, CallIcon, MessageIcon, SettingsIcon, INITIAL_CALLS } from '../constants';
 
 interface ConversationListProps {
@@ -21,6 +22,9 @@ interface ConversationListProps {
     currentUser?: User;
     contacts?: User[];
     onContactAdded?: () => void;
+    onCreateGroup?: (name: string, participantIds: string[], avatar?: string) => Promise<void>;
+    allUsers?: User[];
+    isSyncing?: boolean;
 }
 
 type NavSection = 'contacts' | 'calls' | 'chats' | 'settings';
@@ -37,11 +41,15 @@ export const ConversationList: React.FC<ConversationListProps> = ({
     currentUserId,
     currentUser,
     contacts = [],
-    onContactAdded
+    onContactAdded,
+    onCreateGroup,
+    allUsers = [],
+    isSyncing = false
 }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [activeSection, setActiveSection] = useState<NavSection>('chats');
     const [isNewChatMenuOpen, setIsNewChatMenuOpen] = useState(false);
+    const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
     const [recentCalls] = useState<Call[]>([]);
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, conversation: Conversation } | null>(null);
     const menuRef = useRef<HTMLDivElement>(null);
@@ -74,7 +82,9 @@ export const ConversationList: React.FC<ConversationListProps> = ({
     }, [conversations]);
 
     const filteredConversations = sortedConversations.filter(convo => {
-        const other = convo.participants.find(p => p.id !== 'me');
+        const other = convo.participants.find(p => 
+            p.id !== 'me' && p.id !== currentUserId
+        );
         return other?.name.toLowerCase().includes(searchQuery.toLowerCase());
     });
 
@@ -129,7 +139,10 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                                         <NewChatMenuItem 
                                             icon={<UsersGroupIcon className="h-5 w-5" />} 
                                             label="New Group" 
-                                            onClick={() => setIsNewChatMenuOpen(false)} 
+                                            onClick={() => {
+                                                setIsNewChatMenuOpen(false);
+                                                setIsGroupModalOpen(true);
+                                            }} 
                                         />
                                         <NewChatMenuItem 
                                             icon={<LockIcon className="h-5 w-5" />} 
@@ -162,16 +175,30 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                     </div>
 
                     <nav className="flex-1 overflow-y-auto no-scrollbar">
-                        {filteredConversations.length > 0 ? (
-                            filteredConversations.map(convo => (
-                                <ConversationListItem 
-                                    key={convo.id} 
-                                    conversation={convo}
-                                    isSelected={convo.id === selectedConversationId}
-                                    onSelect={onSelectConversation}
-                                    onContextMenu={handleContextMenu}
-                                />
-                            ))
+                        {isSyncing && filteredConversations.length === 0 ? (
+                            // Show loading placeholders when syncing and no conversations yet
+                            <>
+                                {[...Array(5)].map((_, index) => (
+                                    <ConversationListPlaceholder key={`loading-${index}`} />
+                                ))}
+                            </>
+                        ) : filteredConversations.length > 0 ? (
+                            <>
+                                {filteredConversations.map(convo => (
+                                    <ConversationListItem 
+                                        key={convo.id} 
+                                        conversation={convo}
+                                        isSelected={convo.id === selectedConversationId}
+                                        onSelect={onSelectConversation}
+                                        onContextMenu={handleContextMenu}
+                                        currentUserId={currentUserId}
+                                    />
+                                ))}
+                                {isSyncing && (
+                                    // Show loading placeholder at the end when syncing with existing conversations
+                                    <ConversationListPlaceholder />
+                                )}
+                            </>
                         ) : (
                             <div className="h-full flex items-center justify-center px-6 py-10 text-center">
                                 <div className="max-w-xs">
@@ -235,6 +262,17 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                     onDelete={onDeleteConversation || (() => {})}
                 />
             )}
+
+            {onCreateGroup && currentUserId && (
+                <GroupCreationModal
+                    isOpen={isGroupModalOpen}
+                    onClose={() => setIsGroupModalOpen(false)}
+                    onCreateGroup={onCreateGroup}
+                    contacts={contacts}
+                    currentUserId={currentUserId}
+                    allUsers={allUsers}
+                />
+            )}
         </div>
     );
 };
@@ -280,3 +318,26 @@ const MegaphoneIcon: React.FC<{className?: string}> = ({ className }) => (
         <path d="M11 5L6 9H2V15H6L11 19V5Z" /><path d="M15.54 8.46a5 5 0 0 1 0 7.07" /><path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
     </svg>
 );
+
+// Loading placeholder component that matches ConversationListItem design
+const ConversationListPlaceholder: React.FC = () => {
+    return (
+        <div className="flex items-center p-3 space-x-4 animate-pulse">
+            {/* Avatar placeholder */}
+            <div className="relative h-12 w-12 flex-shrink-0">
+                <div className="h-full w-full rounded-full bg-slate-200"></div>
+            </div>
+            {/* Content placeholder */}
+            <div className="flex-1 min-w-0">
+                <div className="flex justify-between items-center mb-2">
+                    {/* Name placeholder */}
+                    <div className="h-4 bg-slate-200 rounded w-24"></div>
+                    {/* Time placeholder */}
+                    <div className="h-3 bg-slate-200 rounded w-10"></div>
+                </div>
+                {/* Message placeholder */}
+                <div className="h-3 bg-slate-200 rounded w-32"></div>
+            </div>
+        </div>
+    );
+};

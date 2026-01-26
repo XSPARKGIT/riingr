@@ -202,9 +202,10 @@ export const EditProfileSection: React.FC<{
     onBack: () => void;
     onLogout: () => void;
 }> = ({ user, onBack, onLogout }) => {
-    const [firstName, setFirstName] = useState(user.name.split(' ')[0]);
-    const [lastName, setLastName] = useState(user.name.split(' ')[1] || '');
-    const [bio, setBio] = useState('A few words about you');
+    const nameParts = user.name.split(' ');
+    const [firstName, setFirstName] = useState(nameParts[0] || '');
+    const [lastName, setLastName] = useState(nameParts.slice(1).join(' ') || '');
+    const [bio, setBio] = useState(user.status || 'A few words about you');
 
     return (
         <div className="flex-1 flex flex-col h-full bg-[#f8f9fa] relative overflow-hidden min-h-0">
@@ -267,8 +268,9 @@ export const EditProfileSection: React.FC<{
                     </div>
 
                     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden divide-y divide-slate-100">
-                        <SettingDetailRow label="Birthday" value="Add" chevron />
-                        <SettingDetailRow label="Username" chevron />
+                        <SettingDetailRow label="Birthday" value={user.birthday || "Add"} chevron />
+                        <SettingDetailRow label="Username" value={user.username || (user.email ? user.email.split('@')[0] : '')} chevron />
+                        <SettingDetailRow label="Email" value={user.email || ''} chevron />
                         <SettingDetailRow label="Change Number" value={user.phone || '+27 11 222 3333'} chevron />
                     </div>
 

@@ -37,8 +37,10 @@ service cloud.firestore {
     
     // Conversations Collection
     match /conversations/{conversationId} {
-      // Participants can read, update, delete conversations
-      allow read: if isParticipant(conversationId);
+      // Participants can read conversations (check participants array directly for queries)
+      allow read: if isAuthenticated() && 
+        request.auth.uid in resource.data.participants;
+      // Participants can update, delete conversations
       allow update: if isParticipant(conversationId);
       allow delete: if isParticipant(conversationId);
       
@@ -48,8 +50,9 @@ service cloud.firestore {
       
       // Messages Subcollection
       match /messages/{messageId} {
-        // Participants can read all messages
-        allow read: if isParticipant(conversationId);
+        // Participants can read all messages (check parent conversation participants)
+        allow read: if isAuthenticated() && 
+          request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
         
         // Participants can create messages, but senderId must match auth.uid
         allow create: if isParticipant(conversationId) && 
@@ -72,8 +75,9 @@ service cloud.firestore {
       
       // Typing Status Subcollection
       match /typing/{userId} {
-        // Participants can read typing status
-        allow read: if isParticipant(conversationId);
+        // Participants can read typing status (check parent conversation participants)
+        allow read: if isAuthenticated() && 
+          request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
         
         // Users can only set their own typing status
         allow create: if isParticipant(conversationId) && userId == request.auth.uid;
@@ -104,7 +108,8 @@ service cloud.firestore {
 - **Create/Update/Delete**: Users can only modify their own profile (authentication required)
 
 ### Conversations Collection
-- **Read/Update/Delete**: Only participants can access conversations
+- **Read**: Participants can read conversations (checks `participants` array directly for efficient queries)
+- **Update/Delete**: Only participants can update/delete conversations
 - **Create**: Anyone authenticated can create conversations, but must include themselves in the `participants` array
 
 ### Messages Subcollection
@@ -160,8 +165,11 @@ After publishing the rules:
 
 If you get "Missing or insufficient permissions" errors:
 1. For username availability checks: The rules now allow unauthenticated reads, so this should work during sign-up
-2. For conversations: Verify the user is authenticated (`request.auth != null`)
-3. Verify the conversation has a `participants` array
-4. Verify the authenticated user's ID is in the `participants` array
-5. Check that the conversation document exists before trying to access messages
-6. Verify the message `senderId` matches `request.auth.uid` when creating messages
+2. For conversations: 
+   - Verify the user is authenticated (`request.auth != null`)
+   - Verify the conversation has a `participants` array
+   - Verify the authenticated user's ID is in the `participants` array
+   - For queries: The read rule checks `resource.data.participants` directly (no `get()` call needed)
+3. Check that the conversation document exists before trying to access messages
+4. Verify the message `senderId` matches `request.auth.uid` when creating messages
+5. **Important**: After updating security rules, make sure to publish them in Firebase Console

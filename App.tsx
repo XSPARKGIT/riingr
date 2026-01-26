@@ -22,8 +22,8 @@ import {
     SetProfileColorView
 } from './components/SettingsView';
 import { getGeminiResponse } from './services/geminiService';
-import { logout as firebaseLogout } from './services/firebaseService';
-import { getUserContacts, getOrCreateConversation, subscribeToConversations, getUserProfile } from './services/firestoreService';
+import { logout as firebaseLogout, getCurrentUser } from './services/firebaseService';
+import { getUserContacts, getOrCreateConversation, subscribeToConversations, getUserProfile, createGroupConversation } from './services/firestoreService';
 import { sendMessage as syncSendMessage, startBackgroundSync, stopBackgroundSync, syncAllFromFirestore, subscribeToMessages } from './services/syncService';
 import { initConnectionListener } from './services/connectionService';
 import { getConversationsLocally, getMessagesLocally, getSyncQueueCount, clearAllLocalData } from './services/localStorageService';
@@ -52,10 +52,10 @@ const App: React.FC = () => {
     const selectedConversationIdRef = useRef<string | null>(selectedConversationId);
     
     const [currentUser, setCurrentUser] = useState<User | null>({
-        id: 'me',
+            id: 'me',
         name: 'Riingr User',
-        avatar: meAvatar,
-        phone: '',
+            avatar: meAvatar,
+            phone: '',
         username: '@user',
     });
 
@@ -243,12 +243,14 @@ const App: React.FC = () => {
                 // Sync from Firestore if online
                 if (typeof navigator !== 'undefined' && navigator.onLine) {
                     try {
+                        setIsSyncing(true);
                         await syncAllFromFirestore(currentUser.id);
                         // Reload after sync - filtered by current user
                         const syncedConversations = await getConversationsLocally(currentUser.id);
                         const conversationsWithMessages = await Promise.all(
                             syncedConversations.map(async (convo) => {
-                                const messages = await getMessagesLocally(convo.id);
+                                // Load messages immediately for all conversations
+                                const messages = await getMessagesLocally(convo.id, 1000); // Load up to 1000 messages
                                 // Sort messages by timestamp ascending (oldest first)
                                 const sortedMessages = messages.sort((a, b) => a.timestamp - b.timestamp);
                                 return { ...convo, messages: sortedMessages };
@@ -258,6 +260,8 @@ const App: React.FC = () => {
                     } catch (error) {
                         console.error('Error syncing from Firestore:', error);
                         // Continue with local data if sync fails
+                    } finally {
+                        setIsSyncing(false);
                     }
                 }
             } catch (error) {
@@ -334,10 +338,10 @@ const App: React.FC = () => {
                 stopBackgroundSync(); // Stop even if logout fails
                 // Still clear local state even if Firebase logout fails
                 await clearAllLocalData();
-                setIsAuthenticated(false);
+            setIsAuthenticated(false);
                 setConversations([]); // Clear conversations from state
-                localStorage.removeItem(AUTH_KEY);
-                localStorage.removeItem(USER_KEY);
+            localStorage.removeItem(AUTH_KEY);
+            localStorage.removeItem(USER_KEY);
             }
         }
     };
@@ -587,80 +591,145 @@ const App: React.FC = () => {
     };
 
     // Real-time message listener for active conversation
+    // Track conversation IDs for subscription management
+    const conversationIds = useMemo(() => 
+        conversations.map(c => c.id).filter(id => id !== 'gemini-chat').sort().join(','),
+        [conversations]
+    );
+
+    // Subscribe to messages for ALL conversations (not just selected one) for real-time updates
     useEffect(() => {
-        if (!selectedConversationId || !currentUser?.id || currentUser.id === 'me') {
+        if (!currentUser?.id || currentUser.id === 'me' || !isOnline) {
             return;
         }
 
-        // Only subscribe when online
-        if (!isOnline) {
-            return;
-        }
+        const unsubscribes: (() => void)[] = [];
+        const ids = conversations.map(c => c.id).filter(id => id !== 'gemini-chat');
 
-        // Skip for gemini-chat (local only)
-        if (selectedConversationId === 'gemini-chat') {
-            return;
-        }
-
-        const unsubscribe = subscribeToMessages(selectedConversationId, (newMessages) => {
-            setConversations(prev => prev.map(convo => {
-                if (convo.id === selectedConversationId) {
-                    // Merge messages, avoiding duplicates
-                    const existingIds = new Set(convo.messages.map(m => m.id));
-                    const uniqueNewMessages = newMessages.filter(m => !existingIds.has(m.id));
-                    
-                    if (uniqueNewMessages.length === 0) {
-                        return convo; // No new messages, don't update
+        // Subscribe to messages for all conversations
+        ids.forEach(conversationId => {
+            const unsubscribe = subscribeToMessages(conversationId, (newMessages) => {
+                setConversations(prev => prev.map(prevConvo => {
+                    if (prevConvo.id === conversationId) {
+                        // Use all messages from Firestore (they're already sorted)
+                        // Only update if messages actually changed
+                        const prevMessageIds = prevConvo.messages.map(m => m.id).join(',');
+                        const newMessageIds = newMessages.map(m => m.id).join(',');
+                        
+                        if (prevMessageIds === newMessageIds && prevConvo.messages.length === newMessages.length) {
+                            return prevConvo; // No changes, don't update
+                        }
+                        
+                        return { ...prevConvo, messages: newMessages };
                     }
-                    
-                    // Merge and sort messages
-                    const merged = [...convo.messages, ...uniqueNewMessages]
-                        .sort((a, b) => a.timestamp - b.timestamp);
-                    
-                    return { ...convo, messages: merged };
-                }
-                return convo;
-            }));
+                    return prevConvo;
+                }));
+            });
+
+            unsubscribes.push(unsubscribe);
         });
 
-        return () => unsubscribe();
-    }, [selectedConversationId, currentUser?.id, isOnline]);
+        return () => {
+            unsubscribes.forEach(unsub => unsub());
+        };
+    }, [conversationIds, currentUser?.id, isOnline]);
 
     const handleSelectContact = async (user: User) => {
-        if (!currentUser?.id || currentUser.id === 'me') {
-            console.error('Cannot create conversation: user not authenticated');
+        // Get Firebase auth user to ensure we use the correct UID
+        const firebaseUser = getCurrentUser();
+        if (!firebaseUser) {
+            console.error('Cannot create conversation: user not authenticated with Firebase');
+            alert('You must be logged in to start a conversation. Please sign in again.');
             return;
         }
 
+        const authUserId = firebaseUser.uid;
+
+        // Verify currentUser.id matches auth UID (for debugging)
+        if (currentUser?.id && currentUser.id !== 'me' && currentUser.id !== authUserId) {
+            console.warn('⚠️ User ID mismatch:', { 
+                currentUserId: currentUser.id, 
+                authUserId 
+            });
+        }
+
+        // Validate user IDs
+        if (!authUserId || !user.id) {
+            console.error('❌ Invalid user IDs:', { authUserId, contactId: user.id });
+            alert('Invalid user information. Please try again.');
+            return;
+        }
+
+        // Debug logging
+        console.log('🔍 Starting conversation with contact:', {
+            authUserId,
+            contactId: user.id,
+            contactName: user.name,
+            isAuthenticated: !!firebaseUser
+        });
+
         try {
-            // Get or create conversation in Firestore
-            const conversationId = await getOrCreateConversation(currentUser.id, user.id);
+            // Get or create conversation in Firestore using Firebase auth UID
+            const conversationId = await getOrCreateConversation(authUserId, user.id);
             
             // Check if conversation already exists in local state
-            const existingConvo = conversations.find(c => c.id === conversationId);
+            let existingConvo = conversations.find(c => c.id === conversationId);
             
             if (existingConvo) {
-                // Conversation exists, just select it
+                // Conversation exists in state, just select it
                 setSelectedConversationId(conversationId);
             } else {
-                // Create new conversation in local state
-                const newConversation: Conversation = {
-                    id: conversationId,
-                    type: 'dm',
-                    participants: [currentUser, user],
-                    messages: [],
-                };
+                // Check if conversation exists in local storage
+                const { getConversationsLocally } = await import('./services/localStorageService');
+                const localConversations = await getConversationsLocally(authUserId);
+                existingConvo = localConversations.find(c => c.id === conversationId);
                 
-                // Save to local storage
-                const { saveConversationLocally } = await import('./services/localStorageService');
-                await saveConversationLocally(newConversation);
-                
-                // Sync to Firestore (already done by getOrCreateConversation, but ensure it's synced)
-                const { syncConversationToFirestore } = await import('./services/syncService');
-                await syncConversationToFirestore(newConversation);
-                
-                setConversations(prev => [...prev, newConversation]);
-                setSelectedConversationId(conversationId);
+                if (existingConvo) {
+                    // Load messages for the conversation
+                    const { getMessagesLocally } = await import('./services/localStorageService');
+                    const messages = await getMessagesLocally(existingConvo.id);
+                    const sortedMessages = messages.sort((a, b) => a.timestamp - b.timestamp);
+                    
+                    const conversationWithMessages = {
+                        ...existingConvo,
+                        messages: sortedMessages
+                    };
+                    
+                    // Add to state and select it
+                    setConversations(prev => {
+                        // Check if it's already in state (race condition protection)
+                        if (prev.find(c => c.id === conversationId)) {
+                            return prev;
+                        }
+                        return [...prev, conversationWithMessages];
+                    });
+                    setSelectedConversationId(conversationId);
+                } else {
+                    // Create new conversation in local state
+                    const newConversation: Conversation = {
+                        id: conversationId,
+                        type: 'dm',
+                        participants: [currentUser, user],
+                        messages: [],
+                    };
+                    
+                    // Save to local storage
+                    const { saveConversationLocally } = await import('./services/localStorageService');
+                    await saveConversationLocally(newConversation);
+                    
+                    // Sync to Firestore (already done by getOrCreateConversation, but ensure it's synced)
+                    const { syncConversationToFirestore } = await import('./services/syncService');
+                    await syncConversationToFirestore(newConversation);
+                    
+                    setConversations(prev => {
+                        // Check if it's already in state (race condition protection)
+                        if (prev.find(c => c.id === conversationId)) {
+                            return prev;
+                        }
+                        return [...prev, newConversation];
+                    });
+                    setSelectedConversationId(conversationId);
+                }
             }
             
             setSettingsCategory(null);
@@ -668,6 +737,91 @@ const App: React.FC = () => {
         } catch (error) {
             console.error('Error creating conversation:', error);
             alert('Failed to start conversation. Please try again.');
+        }
+    };
+
+    const handleCreateGroup = async (name: string, participantIds: string[], avatar?: string) => {
+        // Get Firebase auth user to ensure we use the correct UID
+        const firebaseUser = getCurrentUser();
+        if (!firebaseUser) {
+            throw new Error('Cannot create group: user not authenticated with Firebase');
+        }
+
+        const authUserId = firebaseUser.uid;
+
+        // Verify currentUser.id matches auth UID (for debugging)
+        if (currentUser?.id && currentUser.id !== 'me' && currentUser.id !== authUserId) {
+            console.warn('User ID mismatch:', { 
+                currentUserId: currentUser.id, 
+                authUserId 
+            });
+        }
+
+        try {
+            // Create group in Firestore using Firebase auth UID
+            const groupId = await createGroupConversation(
+                authUserId,
+                name,
+                participantIds,
+                avatar
+            );
+
+            // Fetch participant user profiles
+            const { getUserProfile } = await import('./services/firestoreService');
+            const participantProfiles = await Promise.all(
+                participantIds.map(id => getUserProfile(id))
+            );
+            const validParticipants = participantProfiles.filter((p): p is User => p !== null);
+
+            // Create new group conversation object
+            const newGroup: Conversation = {
+                id: groupId,
+                type: 'group',
+                name: name.trim(),
+                avatar: avatar,
+                participants: [currentUser, ...validParticipants],
+                messages: [],
+                admins: [currentUser.id],
+            };
+
+            // Create system message
+            const systemMessage: Message = {
+                id: `system_${Date.now()}`,
+                text: `${currentUser.name} created this group`,
+                timestamp: Date.now(),
+                senderId: 'system',
+                isSystem: true,
+                status: 'sent',
+            };
+
+            // Add system message to conversation
+            newGroup.messages = [systemMessage];
+
+            // Save to local storage
+            const { saveConversationLocally, saveMessageLocally } = await import('./services/localStorageService');
+            await saveConversationLocally(newGroup);
+            await saveMessageLocally(groupId, systemMessage);
+
+            // Sync conversation to Firestore
+            const { syncConversationToFirestore } = await import('./services/syncService');
+            await syncConversationToFirestore(newGroup);
+
+            // Send system message to Firestore
+            const { sendMessage } = await import('./services/syncService');
+            await sendMessage(groupId, systemMessage);
+
+            // Add to conversations state
+            setConversations(prev => [...prev, newGroup]);
+            
+            // Select the new group
+            setSelectedConversationId(groupId);
+            
+            // Close settings if open
+            setSettingsCategory(null);
+            setReplyingTo(null);
+        } catch (error) {
+            console.error('Error creating group:', error);
+            throw error; // Re-throw to let modal handle the error
         }
     };
 
@@ -762,6 +916,9 @@ const App: React.FC = () => {
                      currentUser={currentUser || undefined}
                      contacts={contacts}
                      onContactAdded={handleContactAdded}
+                     onCreateGroup={handleCreateGroup}
+                     allUsers={allUniqueUsers}
+                     isSyncing={isSyncing}
                    />
                 </div>
                 

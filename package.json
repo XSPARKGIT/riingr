@@ -54,8 +54,10 @@
       "extendInfo": {
         "CFBundleName": "Riingr",
         "CFBundleDisplayName": "Riingr",
-        "LSMinimumSystemVersion": "10.13.0"
+        "LSMinimumSystemVersion": "11.0.0",
+        "NSHighResolutionCapable": true
       },
+      "minimumSystemVersion": "11.0.0",
       "hardenedRuntime": false,
       "gatekeeperAssess": false,
       "identity": null

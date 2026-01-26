@@ -585,7 +585,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
                                         }}
                                         className="w-full text-xs sm:text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors text-center mt-3 sm:mt-4"
                                         disabled={isResettingPassword}
-                                    >
+                                >
                                         Back to Sign In
                                 </button>
                             </form>

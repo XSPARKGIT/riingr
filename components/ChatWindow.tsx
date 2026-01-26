@@ -366,7 +366,30 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 {summary && <SummaryBanner text={summary} onClose={() => setSummary(null)} />}
                 
                 <div className="flex flex-col pb-4 px-2 sm:px-4 w-full min-w-0">
-                    {groupedMessages.map((item, idx) => {
+                    {conversation.messages.length === 0 ? (
+                        // Empty state with loading placeholders
+                        <div className="flex-1 flex items-center justify-center px-6 py-10">
+                            <div className="max-w-sm w-full text-center">
+                                <div className="h-16 w-16 rounded-full bg-green-50 text-green-600 flex items-center justify-center mx-auto mb-4">
+                                    <MessengerIcon className="h-8 w-8" />
+                                </div>
+                                <p className="text-sm font-bold text-slate-700 mb-2">
+                                    {isLoading ? 'Loading messages...' : 'No messages yet'}
+                                </p>
+                                <p className="text-xs text-slate-400">
+                                    {isLoading ? 'Syncing your conversation history' : 'Start the conversation by sending a message'}
+                                </p>
+                                {isLoading && (
+                                    <div className="mt-6 space-y-3">
+                                        {[...Array(3)].map((_, i) => (
+                                            <MessagePlaceholder key={`placeholder-${i}`} isOwnMessage={i % 2 === 0} />
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    ) : (
+                        groupedMessages.map((item, idx) => {
                         if (item.type === 'date') {
                             return (
                                 <div key={`date-${idx}`} className="flex justify-center w-full my-4 sm:my-6 sticky top-2 z-10 pointer-events-none shrink-0">
@@ -395,7 +418,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                 />
                             </div>
                         );
-                    })}
+                    }))}
                     {(isLoading || isGeneratingImage) && <TypingIndicator users={[]} />}
                     {typingUsers.length > 0 && (
                         <TypingIndicator 
@@ -523,6 +546,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 </div>
             )}
 
+            {/* Message Placeholder Component */}
             {contextMenu && (
                 <MessageContextMenu 
                     x={contextMenu.x}
@@ -539,6 +563,25 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                     onTranslate={() => handleTranslate(contextMenu.msg)}
                 />
             )}
+        </div>
+    );
+};
+
+// Message placeholder component for loading states
+const MessagePlaceholder: React.FC<{ isOwnMessage: boolean }> = ({ isOwnMessage }) => {
+    return (
+        <div className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} w-full animate-pulse`}>
+            <div className={`max-w-[75%] sm:max-w-[60%] flex ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'} items-end space-x-2 space-x-reverse`}>
+                {/* Avatar placeholder */}
+                <div className="h-8 w-8 rounded-full bg-slate-200 flex-shrink-0"></div>
+                {/* Message bubble placeholder */}
+                <div className={`flex-1 ${isOwnMessage ? 'bg-green-200' : 'bg-slate-200'} rounded-2xl p-4`}>
+                    <div className="space-y-2">
+                        <div className="h-3 bg-slate-300 rounded w-3/4"></div>
+                        <div className="h-3 bg-slate-300 rounded w-1/2"></div>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 };

@@ -13,6 +13,7 @@ import {
   arrayUnion,
 } from 'firebase/firestore';
 import { db } from './firebaseConfig';
+import { auth } from './firebaseConfig';
 import type { User, Conversation } from '../types';
 
 /**
@@ -335,28 +336,158 @@ export const getOrCreateConversation = async (
   userId2: string
 ): Promise<string> => {
   try {
+    // Validate and trim user IDs
+    const trimmedId1 = userId1?.trim();
+    const trimmedId2 = userId2?.trim();
+    
+    if (!trimmedId1 || !trimmedId2) {
+      throw new Error('Invalid user IDs provided');
+    }
+    
+    if (trimmedId1 === trimmedId2) {
+      throw new Error('Cannot create conversation with yourself');
+    }
+    
     // Create deterministic conversation ID (sorted user IDs)
-    const sortedIds = [userId1, userId2].sort();
+    const sortedIds = [trimmedId1, trimmedId2].sort();
     const conversationId = `dm_${sortedIds[0]}_${sortedIds[1]}`;
     
-    const conversationRef = doc(db, 'conversations', conversationId);
-    const conversationSnap = await getDoc(conversationRef);
+    // Verify authentication
+    const currentAuthUser = auth.currentUser;
+    if (!currentAuthUser) {
+      throw new Error('User not authenticated. Please sign in again.');
+    }
     
-    if (!conversationSnap.exists()) {
+    // Ensure the authenticated user's UID is in the participants
+    if (!sortedIds.includes(currentAuthUser.uid)) {
+      console.error('❌ Auth UID not in participants:', {
+        authUid: currentAuthUser.uid,
+        participants: sortedIds
+      });
+      throw new Error('Authentication error: Your user ID is not in the participants list.');
+    }
+    
+    // Debug logging
+    console.log('🔍 Creating conversation:', {
+      authUid: currentAuthUser.uid,
+      userId1: trimmedId1,
+      userId2: trimmedId2,
+      sortedIds,
+      conversationId,
+      authUidInParticipants: sortedIds.includes(currentAuthUser.uid)
+    });
+    
+    const conversationRef = doc(db, 'conversations', conversationId);
+    
+    // Try to read the conversation, but if it doesn't exist or we don't have permission,
+    // we'll catch the error and try to create it
+    let conversationExists = false;
+    try {
+      const conversationSnap = await getDoc(conversationRef);
+      conversationExists = conversationSnap.exists();
+    } catch (readError: any) {
+      // If read fails (document doesn't exist or permission denied), 
+      // we'll try to create it - this is expected for new conversations
+      console.log('📖 Conversation read check:', readError.code === 'permission-denied' ? 'Permission denied (document may not exist)' : readError.message);
+    }
+    
+    if (!conversationExists) {
+      // Ensure participants is a proper array (defensive programming)
+      const participantsArray = Array.isArray(sortedIds) ? [...sortedIds] : [sortedIds[0], sortedIds[1]];
+      
+      // Double-check auth UID is in participants
+      if (!participantsArray.includes(currentAuthUser.uid)) {
+        console.error('❌ CRITICAL: Auth UID not in participants array before creation!', {
+          authUid: currentAuthUser.uid,
+          participants: participantsArray
+        });
+        throw new Error('Security validation failed: Your user ID must be in the participants list.');
+      }
+      
       // Create new conversation
-      await setDoc(conversationRef, {
+      const conversationData = {
         type: 'dm',
-        participants: sortedIds,
+        participants: participantsArray, // Explicitly use array
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
+      };
+      
+      // Log the exact data structure
+      console.log('📝 Creating conversation with data:', {
+        type: conversationData.type,
+        participants: conversationData.participants,
+        participantsType: typeof conversationData.participants,
+        participantsIsArray: Array.isArray(conversationData.participants),
+        participantsLength: conversationData.participants.length,
+        authUid: currentAuthUser.uid,
+        authUidInParticipants: conversationData.participants.includes(currentAuthUser.uid),
+        authUidType: typeof currentAuthUser.uid,
+        participantTypes: conversationData.participants.map(p => typeof p)
       });
       
-      console.log('✅ Conversation created:', conversationId);
+      try {
+        await setDoc(conversationRef, conversationData);
+        console.log('✅ Conversation created:', conversationId);
+      } catch (createError: any) {
+        // If creation fails with "already exists" error, the conversation was created
+        // by another client between our check and creation attempt
+        if (createError.code === 'permission-denied') {
+          console.error('❌ Permission denied creating conversation. Auth UID:', currentAuthUser.uid, 'Participants:', sortedIds);
+          throw new Error('Permission denied: Unable to create conversation. Please ensure you are logged in and try again.');
+        }
+        throw createError;
+      }
+    } else {
+      console.log('✅ Conversation already exists:', conversationId);
     }
     
     return conversationId;
   } catch (error) {
-    console.error('Error creating/getting conversation:', error);
+    console.error('❌ Error creating/getting conversation:', error);
+    console.error('User IDs:', { userId1, userId2 });
+    throw error;
+  }
+};
+
+/**
+ * Create a new group conversation
+ */
+export const createGroupConversation = async (
+  creatorId: string,
+  name: string,
+  participantIds: string[],
+  avatar?: string
+): Promise<string> => {
+  try {
+    if (!name || name.trim().length < 2) {
+      throw new Error('Group name must be at least 2 characters');
+    }
+    
+    if (participantIds.length === 0) {
+      throw new Error('At least one participant is required');
+    }
+    
+    // Generate unique group ID
+    const groupId = `group_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Include creator in participants (remove duplicates)
+    const allParticipants = Array.from(new Set([creatorId, ...participantIds.filter(id => id !== creatorId)]));
+    
+    const conversationRef = doc(db, 'conversations', groupId);
+    await setDoc(conversationRef, {
+      type: 'group',
+      name: name.trim(),
+      avatar: avatar || undefined,
+      participants: allParticipants,
+      admins: [creatorId], // Creator is admin
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    
+    console.log('✅ Group conversation created:', groupId);
+    return groupId;
+  } catch (error) {
+    console.error('Error creating group conversation:', error);
     throw error;
   }
 };
@@ -403,6 +534,9 @@ export const subscribeToConversations = (
               id: participantId,
               name: 'Unknown User',
               avatar: '',
+              email: '',
+              phone: '',
+              isOnline: false,
             } as User;
           })
         );

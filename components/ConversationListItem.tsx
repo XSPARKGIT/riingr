@@ -8,6 +8,7 @@ interface ConversationListItemProps {
     isSelected: boolean;
     onSelect: (id: string) => void;
     onContextMenu: (e: React.MouseEvent, conversation: Conversation) => void;
+    currentUserId?: string;
 }
 
 const Avatar: React.FC<{ user: User }> = ({ user }) => {
@@ -33,8 +34,11 @@ const Avatar: React.FC<{ user: User }> = ({ user }) => {
     );
 }
 
-export const ConversationListItem: React.FC<ConversationListItemProps> = ({ conversation, isSelected, onSelect, onContextMenu }) => {
-    const otherParticipant = conversation.participants.find(p => p.id !== 'me');
+export const ConversationListItem: React.FC<ConversationListItemProps> = ({ conversation, isSelected, onSelect, onContextMenu, currentUserId }) => {
+    // Find the other participant (not the current user)
+    const otherParticipant = conversation.participants.find(p => 
+        p.id !== 'me' && p.id !== currentUserId
+    );
     const lastMessage = conversation.messages[conversation.messages.length - 1];
 
     if (!otherParticipant) return null;

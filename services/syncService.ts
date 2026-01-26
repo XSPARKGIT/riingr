@@ -46,6 +46,10 @@ const BATCH_SIZE = 500; // Firestore batch limit
 // Sync lock mechanism to prevent concurrent syncs
 const syncLocks = new Map<string, { timestamp: number; timeout: NodeJS.Timeout }>();
 
+// Global sync lock to prevent multiple syncAllFromFirestore calls
+let globalSyncLock: { timestamp: number; timeout: NodeJS.Timeout } | null = null;
+const GLOBAL_SYNC_LOCK_TIMEOUT = 60000; // 60 seconds
+
 /**
  * Acquire sync lock for a conversation
  */
@@ -696,10 +700,53 @@ export const stopBackgroundSync = (): void => {
 };
 
 /**
+ * Acquire global sync lock
+ */
+const acquireGlobalSyncLock = (): boolean => {
+  if (globalSyncLock) {
+    // Check if lock has expired
+    if (Date.now() - globalSyncLock.timestamp > GLOBAL_SYNC_LOCK_TIMEOUT) {
+      clearTimeout(globalSyncLock.timeout);
+      globalSyncLock = null;
+    } else {
+      return false; // Lock is still active
+    }
+  }
+
+  // Create new lock
+  const timeout = setTimeout(() => {
+    globalSyncLock = null;
+  }, GLOBAL_SYNC_LOCK_TIMEOUT);
+
+  globalSyncLock = {
+    timestamp: Date.now(),
+    timeout,
+  };
+
+  return true;
+};
+
+/**
+ * Release global sync lock
+ */
+const releaseGlobalSyncLock = (): void => {
+  if (globalSyncLock) {
+    clearTimeout(globalSyncLock.timeout);
+    globalSyncLock = null;
+  }
+};
+
+/**
  * Sync all data from Firestore to local (incremental)
  */
 export const syncAllFromFirestore = async (userId: string): Promise<void> => {
   if (!(await isOnlineWithFirebase())) {
+    return;
+  }
+
+  // Check if global sync is already in progress
+  if (!acquireGlobalSyncLock()) {
+    console.log('⏸️ Sync already in progress, skipping duplicate call');
     return;
   }
 
@@ -725,6 +772,8 @@ export const syncAllFromFirestore = async (userId: string): Promise<void> => {
   } catch (error) {
     console.error('Failed to sync from Firestore:', error);
     throw error;
+  } finally {
+    releaseGlobalSyncLock();
   }
 };
 
@@ -748,9 +797,28 @@ const syncConversationsFromFirestore = async (userId: string): Promise<void> => 
       (data.participants || []).map(async (participantId: string) => {
         const userDoc = await getDoc(doc(db, 'users', participantId));
         if (userDoc.exists()) {
-          return { id: participantId, ...userDoc.data() };
+          const userData = userDoc.data();
+          // Properly map Firestore data to User type
+          return {
+            id: participantId,
+            name: userData.name || 'Unknown User',
+            email: userData.email || '',
+            avatar: userData.avatar || '',
+            username: userData.username,
+            phone: userData.phone || '',
+            isOnline: userData.isOnline || false,
+            status: userData.status,
+            profileComplete: userData.profileComplete,
+          } as User;
         }
-        return { id: participantId, name: 'Unknown User' };
+        return { 
+          id: participantId, 
+          name: 'Unknown User',
+          avatar: '',
+          email: '',
+          phone: '',
+          isOnline: false,
+        } as User;
       })
     );
 
