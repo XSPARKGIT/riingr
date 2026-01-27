@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { SendIcon, PlusIcon, ImageIcon, PinIcon, FlagIcon, MoreIcon, CloseIcon, MessengerIcon, FolderIcon } from '../constants';
+import { SendIcon, PlusIcon, ImageIcon, PinIcon, FlagIcon, MoreIcon, CloseIcon, MessengerIcon, FolderIcon, GiftIcon, StarIcon } from '../constants';
 import type { Message } from '../types';
 import { setTypingStatus, clearTypingStatus } from '../services/firestoreService';
 import GifPicker from './GifPicker';
@@ -282,46 +282,46 @@ export const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, onOpe
                     </button>
 
                     {showActions && (
-                        <div className="absolute bottom-12 sm:bottom-14 left-0 bg-white border border-slate-100 shadow-2xl rounded-2xl sm:rounded-3xl py-2 sm:py-3 w-52 sm:w-60 z-50 animate-in fade-in slide-in-from-bottom-4 duration-300 overflow-hidden">
+                        <div className="absolute bottom-12 sm:bottom-14 left-0 bg-white border border-slate-200 shadow-xl rounded-2xl sm:rounded-3xl py-1.5 sm:py-2 w-48 sm:w-56 z-50 animate-in fade-in slide-in-from-bottom-4 duration-300 overflow-hidden">
                             <div className="flex flex-col">
                                 <ActionButton 
-                                    icon={<MessengerIcon className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600" />} 
+                                    icon={<MessengerIcon className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500" />} 
                                     label="AI Image Gen" 
                                     onClick={() => handleActionClick(handleAIGenerate)} 
                                     delay="0ms"
                                 />
                                 <ActionButton 
-                                    icon={<ImageIcon className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-500" />} 
+                                    icon={<ImageIcon className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500" />} 
                                     label="Photo" 
                                     onClick={() => handleActionClick(() => fileInputRef.current?.click())} 
                                     delay="50ms"
                                 />
                                 <ActionButton 
-                                    icon={<ImageIcon className="h-4 w-4 sm:h-5 sm:w-5 text-sky-500" />} 
+                                    icon={<GiftIcon className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500" />} 
                                     label="GIF" 
                                     onClick={() => handleActionClick(() => setShowGifPicker(true))} 
                                     delay="75ms"
                                 />
                                 <ActionButton 
-                                    icon={<ImageIcon className="h-4 w-4 sm:h-5 sm:w-5 text-pink-500" />} 
+                                    icon={<StarIcon className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500" />} 
                                     label="Sticker" 
                                     onClick={() => handleActionClick(() => setShowStickerPicker(true))} 
                                     delay="100ms"
                                 />
                                 <ActionButton 
-                                    icon={<MoreIcon className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />} 
+                                    icon={<FolderIcon className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500" />} 
                                     label="Document" 
                                     onClick={() => handleActionClick(() => fileInputRef.current?.click())} 
                                     delay="125ms"
                                 />
                                 <ActionButton 
-                                    icon={<PinIcon className="h-4 w-4 sm:h-5 sm:w-5 text-orange-500" />} 
+                                    icon={<PinIcon className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500" />} 
                                     label="Location" 
                                     onClick={() => handleActionClick(handleSendLocation)} 
                                     delay="150ms"
                                 />
                                 <ActionButton 
-                                    icon={<FlagIcon className="h-4 w-4 sm:h-5 sm:w-5 text-rose-500" />} 
+                                    icon={<FlagIcon className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500" />} 
                                     label="Poll" 
                                     onClick={() => handleActionClick(() => onOpenPoll?.())} 
                                     delay="200ms"
@@ -386,11 +386,13 @@ const ActionButton: React.FC<{ icon: React.ReactNode, label: string, onClick: ()
         type="button"
         onClick={onClick}
         style={{ animationDelay: delay }}
-        className="flex items-center w-full px-4 py-2 sm:py-3 hover:bg-slate-50 transition-colors group animate-in slide-in-from-bottom-2 fade-in"
+        className="flex items-center w-full px-3 py-1.5 sm:px-3.5 sm:py-2 hover:bg-slate-50 transition-colors group animate-in slide-in-from-bottom-2 fade-in"
     >
-        <div className="mr-3 transition-transform group-hover:scale-110 duration-200">
+        <div className="mr-2.5 sm:mr-3 transition-transform group-hover:scale-110 duration-200 text-slate-500 group-hover:text-slate-800">
             {icon}
         </div>
-        <span className="text-[13px] sm:text-[14px] font-black text-slate-700 tracking-tight">{label}</span>
+        <span className="text-[11px] sm:text-[12px] font-semibold text-slate-600 tracking-[0.14em] uppercase">
+            {label}
+        </span>
     </button>
 );

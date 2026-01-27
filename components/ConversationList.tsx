@@ -25,6 +25,10 @@ interface ConversationListProps {
     onCreateGroup?: (name: string, participantIds: string[], avatar?: string) => Promise<void>;
     allUsers?: User[];
     isSyncing?: boolean;
+    mutedConversations?: Map<string, number | null>;
+    onMute?: (conversationId: string, mutedUntil: number | null) => Promise<void>;
+    onUnmute?: (conversationId: string) => Promise<void>;
+    onOpenGroupSettings?: (conversationId: string) => void;
 }
 
 type NavSection = 'contacts' | 'calls' | 'chats' | 'settings';
@@ -44,7 +48,11 @@ export const ConversationList: React.FC<ConversationListProps> = ({
     onContactAdded,
     onCreateGroup,
     allUsers = [],
-    isSyncing = false
+    isSyncing = false,
+    mutedConversations = new Map(),
+    onMute,
+    onUnmute,
+    onOpenGroupSettings
 }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [activeSection, setActiveSection] = useState<NavSection>('chats');
@@ -192,6 +200,12 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                                         onSelect={onSelectConversation}
                                         onContextMenu={handleContextMenu}
                                         currentUserId={currentUserId}
+                                        isMuted={(() => {
+                                            const mutedUntil = mutedConversations.get(convo.id);
+                                            if (mutedUntil === undefined || mutedUntil === null) return false;
+                                            if (mutedUntil === -1) return true; // Forever
+                                            return mutedUntil > Date.now(); // Check if still muted
+                                        })()}
                                     />
                                 ))}
                                 {isSyncing && (
@@ -260,6 +274,17 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                     onClose={() => setContextMenu(null)}
                     onTogglePin={onTogglePin || (() => {})}
                     onDelete={onDeleteConversation || (() => {})}
+                    onMute={onMute ? async (mutedUntil) => {
+                        await onMute(contextMenu.conversation.id, mutedUntil);
+                    } : undefined}
+                    onUnmute={onUnmute ? async () => {
+                        await onUnmute(contextMenu.conversation.id);
+                    } : undefined}
+                    onOpenGroupSettings={onOpenGroupSettings && contextMenu.conversation.type === 'group' ? () => {
+                        onOpenGroupSettings(contextMenu.conversation.id);
+                        setContextMenu(null);
+                    } : undefined}
+                    mutedUntil={mutedConversations.get(contextMenu.conversation.id)}
                 />
             )}
 

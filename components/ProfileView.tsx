@@ -21,6 +21,7 @@ interface ProfileViewProps {
     onAddMember?: (user: User) => void;
     onRemoveMember?: (userId: string) => void;
     availableUsers?: User[];
+    onOpenGroupSettings?: () => void;
 }
 
 type Tab = 'Media' | 'Files' | 'Links' | 'Voice' | 'GIFs' | 'Groups';
@@ -29,7 +30,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     conversation, 
     onClose, 
     onRemoveMember,
-    availableUsers = []
+    availableUsers = [],
+    onOpenGroupSettings
 }) => {
     const [activeTab, setActiveTab] = useState<Tab>('Media');
     const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
@@ -266,14 +268,31 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         </div>
                     ) : (
                         <div className="space-y-6">
+                            {onOpenGroupSettings && (
+                                <button
+                                    onClick={onOpenGroupSettings}
+                                    className="w-full py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-black text-[15px] transition-all active:scale-[0.98] shadow-lg shadow-green-100/50"
+                                >
+                                    Edit Group Settings
+                                </button>
+                            )}
                             <div className="flex items-center justify-between mb-2">
-                                <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Participants</h3>
-                                {isAdmin && (
-                                    <button className="text-green-600 text-xs font-black hover:underline uppercase">
+                                <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Participants ({conversation.participants.length})</h3>
+                                {isAdmin && onAddMember && (
+                                    <button 
+                                        onClick={() => onAddMember && onAddMember(conversation.participants[0])}
+                                        className="text-green-600 text-xs font-black hover:underline uppercase"
+                                    >
                                         Add Member
                                     </button>
                                 )}
                             </div>
+                            {conversation.description && (
+                                <div className="mb-4">
+                                    <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2">Description</h4>
+                                    <p className="text-sm text-slate-600">{conversation.description}</p>
+                                </div>
+                            )}
                             <div className="space-y-3">
                                 {conversation.participants.map(p => (
                                     <div key={p.id} className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-2xl transition-colors">

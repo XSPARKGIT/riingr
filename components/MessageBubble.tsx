@@ -34,6 +34,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
     const time = new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
+    const isSystem = message.isSystem || message.senderId === 'system';
+
     const handleStart = (clientX: number) => {
         startXRef.current = clientX;
         setIsSwiping(true);
@@ -75,16 +77,20 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
     const bubbleClasses = isSticker
         ? '' // No bubble background for stickers
-        : isOwnMessage
-            ? `bg-green-600 text-white ${radiusClasses}`
-            : `bg-white text-slate-800 ${radiusClasses} border border-slate-100`;
+        : isSystem
+            ? 'bg-slate-100/90 text-slate-600 rounded-xl px-3 py-1.5 border border-slate-200 shadow-none text-[11px] leading-snug'
+            : isOwnMessage
+                ? `bg-green-600 text-white ${radiusClasses}`
+                : `bg-white text-slate-800 ${radiusClasses} border border-slate-100`;
 
     // Calculate total votes for the poll
     const totalVotes = message.poll?.options.reduce((acc, opt) => acc + opt.votes, 0) || 0;
 
     return (
         <div 
-            className={`relative flex flex-col ${isOwnMessage ? 'items-end' : 'items-start'} w-full select-none group min-w-0`}
+            className={`relative flex flex-col ${
+                isSystem ? 'items-center' : isOwnMessage ? 'items-end' : 'items-start'
+            } w-full select-none group min-w-0`}
             onMouseDown={(e) => handleStart(e.clientX)}
             onMouseMove={(e) => handleMove(e.clientX)}
             onMouseUp={handleEnd}
@@ -92,7 +98,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             onContextMenu={(e) => onContextMenu(e, message)}
         >
             <div 
-                className={`max-w-[90%] sm:max-w-[75%] min-w-0 relative ${!isSwiping ? 'transition-transform duration-300' : ''}`}
+                className={`${
+                    isSystem ? 'max-w-[80%]' : 'max-w-[90%] sm:max-w-[75%]'
+                } min-w-0 relative ${!isSwiping ? 'transition-transform duration-300' : ''}`}
                 style={{ transform: `translateX(${offsetX}px)` }}
             >
                 {/* Pinned Indicator Above Bubble */}
@@ -103,7 +111,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     </div>
                 )}
 
-                <div className={`${isSticker ? '' : 'shadow-sm'} flex flex-col relative min-w-0 ${bubbleClasses}`}>
+                <div className={`${isSticker ? '' : isSystem ? '' : 'shadow-sm'} flex flex-col relative min-w-0 ${bubbleClasses}`}>
                     {replyToMessage && (
                         <div 
                             onClick={(e) => { e.stopPropagation(); onScrollToMessage?.(replyToMessage.id); }}

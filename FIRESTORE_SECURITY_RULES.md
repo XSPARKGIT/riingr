@@ -31,7 +31,27 @@ service cloud.firestore {
       
       // Users can only create/update/delete their own profile
       allow create: if isAuthenticated() && request.auth.uid == userId;
-      allow update: if isAuthenticated() && request.auth.uid == userId;
+      
+      // Update rules:
+      // - Users can update their own profile fields
+      // - Users can update their own mutedConversations array (for muting/unmuting conversations)
+      // - Users can update their own conversationPreferences and blockedUsers arrays
+      allow update: if isAuthenticated() && request.auth.uid == userId && (
+        // Allow updating mutedConversations, conversationPreferences, blockedUsers
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'mutedConversations',
+          'conversationPreferences',
+          'blockedUsers',
+          'updatedAt'
+        ]) ||
+        // Allow updating other profile fields (but not these arrays mixed with others)
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'mutedConversations',
+          'conversationPreferences',
+          'blockedUsers'
+        ])
+      );
+      
       allow delete: if isAuthenticated() && request.auth.uid == userId;
     }
     
@@ -40,8 +60,40 @@ service cloud.firestore {
       // Participants can read conversations (check participants array directly for queries)
       allow read: if isAuthenticated() && 
         request.auth.uid in resource.data.participants;
-      // Participants can update, delete conversations
-      allow update: if isParticipant(conversationId);
+      
+      // Update rules:
+      // - Owners/admins can update group metadata (name, avatar, description, theme, updatedAt)
+      // - Owners/admins can update participants array (add/remove members, pendingMemberIds)
+      // - Owners/admins can update role arrays (owners, admins, moderators)
+      allow update: if isParticipant(conversationId) && (
+        // Owners/Admins can update group metadata + theme
+        (resource.data.type == 'group' && 
+         (request.auth.uid in resource.data.owners || request.auth.uid in resource.data.admins) &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'avatar', 'description', 'theme', 'updatedAt'])) ||
+        // Owners/Admins can update participants and pendingMemberIds
+        (resource.data.type == 'group' && 
+         (request.auth.uid in resource.data.owners || request.auth.uid in resource.data.admins) &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participants', 'pendingMemberIds', 'updatedAt'])) ||
+        // Owners/Admins can update role arrays and inviteLinkEnabled
+        (resource.data.type == 'group' && 
+         (request.auth.uid in resource.data.owners || request.auth.uid in resource.data.admins) &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['owners', 'admins', 'moderators', 'inviteLinkEnabled', 'updatedAt'])) ||
+        // Participants can update other fields (like isPinned)
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'name',
+          'avatar',
+          'description',
+          'theme',
+          'participants',
+          'pendingMemberIds',
+          'owners',
+          'admins',
+          'moderators',
+          'inviteLinkEnabled'
+        ]))
+      );
+      
+      // Participants can delete conversations (for leaving groups)
       allow delete: if isParticipant(conversationId);
       
       // Anyone authenticated can create conversations, but must include themselves in participants
@@ -97,6 +149,29 @@ service cloud.firestore {
       allow create: if isAuthenticated() && request.auth.uid == userId;
       allow delete: if isAuthenticated() && request.auth.uid == userId;
     }
+
+    // Invites collection (for group invite links)
+    match /invites/{token} {
+      // Anyone can read an invite document if they have the token (to resolve which group)
+      allow read: if true;
+      
+      // Only authenticated users with admin/owner rights on the group can create/update invites
+      allow create, update: if isAuthenticated() &&
+        request.resource.data.groupId is string &&
+        isParticipant(request.resource.data.groupId) &&
+        (
+          request.auth.uid in get(/databases/$(database)/documents/conversations/$(request.resource.data.groupId)).data.owners ||
+          request.auth.uid in get(/databases/$(database)/documents/conversations/$(request.resource.data.groupId)).data.admins
+        );
+    }
+
+    // Reports collection (for abuse reports)
+    match /reports/{reportId} {
+      // Any authenticated user can create a report
+      allow create: if isAuthenticated();
+      // Reads should be restricted to backend/admin tools; deny client reads by default
+      allow read, update, delete: if false;
+    }
   }
 }
 ```
@@ -107,11 +182,19 @@ service cloud.firestore {
 - **Read**: Both authenticated and unauthenticated users can read user profiles
   - Unauthenticated reads are allowed for username availability checks during sign-up
   - Authenticated users can read profiles for search and displaying contact info
-- **Create/Update/Delete**: Users can only modify their own profile (authentication required)
+- **Create/Delete**: Users can only create/delete their own profile (authentication required)
+- **Update**: Users can update their own profile
+  - Users can update their `mutedConversations` array to mute/unmute conversations
+  - Users can update other profile fields (name, avatar, status, etc.)
 
 ### Conversations Collection
 - **Read**: Participants can read conversations (checks `participants` array directly for efficient queries)
-- **Update/Delete**: Only participants can update/delete conversations
+- **Update**: 
+  - **Group Admins** can update group metadata (name, avatar, description, updatedAt)
+  - **Group Admins** can update participants array (add/remove members)
+  - **Group Admins** can update admins array (transfer/remove admin rights)
+  - **Participants** can update other fields (like isPinned)
+- **Delete**: Participants can delete conversations (for leaving groups)
 - **Create**: Anyone authenticated can create conversations, but must include themselves in the `participants` array
 
 ### Messages Subcollection

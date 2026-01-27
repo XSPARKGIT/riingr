@@ -4,6 +4,7 @@ import { ChatWindow } from './components/ChatWindow';
 import { Header } from './components/Header';
 import { AuthScreen } from './components/AuthScreen';
 import { OnboardingProfile } from './components/OnboardingProfile';
+import { GroupSettingsView } from './components/GroupSettingsView';
 import { 
     EditProfileSection, 
     SupportPopup,
@@ -23,11 +24,26 @@ import {
 } from './components/SettingsView';
 import { getGeminiResponse } from './services/geminiService';
 import { logout as firebaseLogout, getCurrentUser } from './services/firebaseService';
-import { getUserContacts, getOrCreateConversation, subscribeToConversations, getUserProfile, createGroupConversation } from './services/firestoreService';
+import { 
+    getUserContacts, 
+    getOrCreateConversation, 
+    subscribeToConversations, 
+    getUserProfile, 
+    createGroupConversation,
+    updateGroupConversation,
+    addMemberToGroup,
+    removeMemberFromGroup,
+    leaveGroup,
+    transferAdminRights,
+    removeAdminRights,
+    muteConversation,
+    unmuteConversation,
+    getMutedConversations
+} from './services/firestoreService';
 import { sendMessage as syncSendMessage, startBackgroundSync, stopBackgroundSync, syncAllFromFirestore, subscribeToMessages } from './services/syncService';
 import { initConnectionListener } from './services/connectionService';
 import { getConversationsLocally, getMessagesLocally, getSyncQueueCount, clearAllLocalData } from './services/localStorageService';
-import type { Conversation, Message, User, PollOption } from './types';
+import type { Conversation, Message, User, PollOption, MutedConversation } from './types';
 import { INITIAL_CONVERSATIONS, MessengerIcon } from './constants';
 import { meAvatar } from './assets';
 
@@ -48,6 +64,8 @@ const App: React.FC = () => {
     const [syncQueueCount, setSyncQueueCount] = useState<number>(0);
     const [isSyncing, setIsSyncing] = useState<boolean>(false);
     const [isProfileLoading, setIsProfileLoading] = useState<boolean>(false);
+    const [mutedConversations, setMutedConversations] = useState<Map<string, number | null>>(new Map());
+    const [isGroupSettingsOpen, setIsGroupSettingsOpen] = useState(false);
     const prevSyncQueueCountRef = useRef<number>(0);
     const selectedConversationIdRef = useRef<string | null>(selectedConversationId);
     
@@ -821,6 +839,85 @@ const App: React.FC = () => {
         }
     };
 
+    // Load muted conversations
+    useEffect(() => {
+        const loadMutedConversations = async () => {
+            if (!currentUser?.id || currentUser.id === 'me') return;
+            try {
+                const muted = await getMutedConversations(currentUser.id);
+                const mutedMap = new Map<string, number | null>();
+                muted.forEach(m => {
+                    mutedMap.set(m.conversationId, m.mutedUntil);
+                });
+                setMutedConversations(mutedMap);
+            } catch (error) {
+                console.error('Error loading muted conversations:', error);
+            }
+        };
+        loadMutedConversations();
+    }, [currentUser?.id]);
+
+    // Group management handlers
+    const handleUpdateGroup = async (groupId: string, updates: Partial<Conversation>) => {
+        const firebaseUser = getCurrentUser();
+        if (!firebaseUser) throw new Error('User not authenticated');
+        await updateGroupConversation(groupId, updates, firebaseUser.uid);
+        // Real-time listener will update state
+    };
+
+    const handleAddMember = async (groupId: string, userId: string) => {
+        const firebaseUser = getCurrentUser();
+        if (!firebaseUser) throw new Error('User not authenticated');
+        await addMemberToGroup(groupId, userId, firebaseUser.uid);
+    };
+
+    const handleRemoveMember = async (groupId: string, userId: string) => {
+        const firebaseUser = getCurrentUser();
+        if (!firebaseUser) throw new Error('User not authenticated');
+        await removeMemberFromGroup(groupId, userId, firebaseUser.uid);
+    };
+
+    const handleLeaveGroup = async (groupId: string) => {
+        const firebaseUser = getCurrentUser();
+        if (!firebaseUser) throw new Error('User not authenticated');
+        await leaveGroup(groupId, firebaseUser.uid);
+        setSelectedConversationId(null);
+    };
+
+    const handleTransferAdmin = async (groupId: string, newAdminId: string) => {
+        const firebaseUser = getCurrentUser();
+        if (!firebaseUser) throw new Error('User not authenticated');
+        await transferAdminRights(groupId, newAdminId, firebaseUser.uid);
+    };
+
+    const handleRemoveAdmin = async (groupId: string, adminId: string) => {
+        const firebaseUser = getCurrentUser();
+        if (!firebaseUser) throw new Error('User not authenticated');
+        await removeAdminRights(groupId, adminId, firebaseUser.uid);
+    };
+
+    const handleMuteGroup = async (conversationId: string, mutedUntil: number | null) => {
+        const firebaseUser = getCurrentUser();
+        if (!firebaseUser) throw new Error('User not authenticated');
+        await muteConversation(firebaseUser.uid, conversationId, mutedUntil);
+        setMutedConversations(prev => {
+            const next = new Map(prev);
+            next.set(conversationId, mutedUntil);
+            return next;
+        });
+    };
+
+    const handleUnmuteGroup = async (conversationId: string) => {
+        const firebaseUser = getCurrentUser();
+        if (!firebaseUser) throw new Error('User not authenticated');
+        await unmuteConversation(firebaseUser.uid, conversationId);
+        setMutedConversations(prev => {
+            const next = new Map(prev);
+            next.delete(conversationId);
+            return next;
+        });
+    };
+
     const handleSelectSettings = (category: string | null) => {
         if (category === 'support-popup') {
             setIsSupportPopupOpen(true);
@@ -909,11 +1006,51 @@ const App: React.FC = () => {
                      onCreateGroup={handleCreateGroup}
                      allUsers={allUniqueUsers}
                      isSyncing={isSyncing}
+                     mutedConversations={mutedConversations}
+                     onMute={handleMuteGroup}
+                     onUnmute={handleUnmuteGroup}
+                     onOpenGroupSettings={(conversationId) => {
+                         setSelectedConversationId(conversationId);
+                         setIsGroupSettingsOpen(true);
+                     }}
                    />
                 </div>
                 
-                <div className={`flex-1 flex-col min-h-0 ${(showChat || showSettingsDetail) ? 'flex' : 'hidden md:flex'}`}>
-                    {selectedConversation ? (
+                <div className={`flex-1 flex-col min-h-0 ${(showChat || showSettingsDetail || isGroupSettingsOpen) ? 'flex' : 'hidden md:flex'}`}>
+                    {isGroupSettingsOpen && selectedConversation && selectedConversation.type === 'group' ? (
+                        <GroupSettingsView
+                            conversation={selectedConversation}
+                            currentUserId={currentUser?.id || ''}
+                            onClose={() => setIsGroupSettingsOpen(false)}
+                            onUpdate={async (updates) => {
+                                await handleUpdateGroup(selectedConversation.id, updates);
+                            }}
+                            onAddMember={async (userId) => {
+                                await handleAddMember(selectedConversation.id, userId);
+                            }}
+                            onRemoveMember={async (userId) => {
+                                await handleRemoveMember(selectedConversation.id, userId);
+                            }}
+                            onLeaveGroup={async () => {
+                                await handleLeaveGroup(selectedConversation.id);
+                                setIsGroupSettingsOpen(false);
+                            }}
+                            onTransferAdmin={async (userId) => {
+                                await handleTransferAdmin(selectedConversation.id, userId);
+                            }}
+                            onRemoveAdmin={async (userId) => {
+                                await handleRemoveAdmin(selectedConversation.id, userId);
+                            }}
+                            onMuteGroup={async (mutedUntil) => {
+                                await handleMuteGroup(selectedConversation.id, mutedUntil);
+                            }}
+                            onUnmuteGroup={async () => {
+                                await handleUnmuteGroup(selectedConversation.id);
+                            }}
+                            availableUsers={allUniqueUsers}
+                            mutedUntil={mutedConversations.get(selectedConversation.id)}
+                        />
+                    ) : selectedConversation ? (
                         <ChatWindow 
                             key={selectedConversation.id}
                             conversation={selectedConversation} 
@@ -929,6 +1066,13 @@ const App: React.FC = () => {
                             onAddReaction={handleAddReaction}
                             onUpdateMessage={handleUpdateMessage}
                             currentUserId={currentUser?.id}
+                            onOpenGroupSettings={selectedConversation.type === 'group' ? () => setIsGroupSettingsOpen(true) : undefined}
+                            isMuted={(() => {
+                                const mutedUntil = mutedConversations.get(selectedConversation.id);
+                                if (mutedUntil === undefined || mutedUntil === null) return false;
+                                if (mutedUntil === -1) return true;
+                                return mutedUntil > Date.now();
+                            })()}
                         />
                     ) : showSettingsDetail ? (
                         <div className="flex-1 flex flex-col bg-slate-50 min-h-0">

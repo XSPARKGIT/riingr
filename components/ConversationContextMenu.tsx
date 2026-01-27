@@ -20,6 +20,10 @@ interface ConversationContextMenuProps {
     onClose: () => void;
     onTogglePin: (id: string) => void;
     onDelete: (id: string) => void;
+    onMute?: (mutedUntil: number | null) => Promise<void>;
+    onUnmute?: () => Promise<void>;
+    onOpenGroupSettings?: () => void;
+    mutedUntil?: number | null;
 }
 
 const sounds = [
@@ -29,7 +33,7 @@ const sounds = [
 ];
 
 export const ConversationContextMenu: React.FC<ConversationContextMenuProps> = ({
-    x, y, conversation, onClose, onTogglePin, onDelete
+    x, y, conversation, onClose, onTogglePin, onDelete, onMute, onUnmute, onOpenGroupSettings, mutedUntil
 }) => {
     const menuRef = useRef<HTMLDivElement>(null);
     const [activeSubMenu, setActiveSubMenu] = useState<'mute' | null>(null);
@@ -75,16 +79,33 @@ export const ConversationContextMenu: React.FC<ConversationContextMenuProps> = (
                     label={conversation.isPinned ? "Unpin" : "Pin"} 
                     onClick={() => { onTogglePin(conversation.id); onClose(); }} 
                 />
-                <ContextMenuItem 
-                    icon={<BellOffIcon className="h-4 w-4" />} 
-                    label="Mute" 
-                    hasChevron
-                    active={activeSubMenu === 'mute'}
-                    onClick={() => {
-                        setActiveSubMenu(activeSubMenu === 'mute' ? null : 'mute');
-                        setActiveSoundMenu(false);
-                    }} 
-                />
+                {(() => {
+                    const isMuted = mutedUntil !== undefined && mutedUntil !== null && (mutedUntil === -1 || mutedUntil > Date.now());
+                    return (
+                        <ContextMenuItem 
+                            icon={<BellOffIcon className="h-4 w-4" />} 
+                            label={isMuted ? "Unmute" : "Mute"} 
+                            hasChevron={!isMuted}
+                            active={activeSubMenu === 'mute'}
+                            onClick={() => {
+                                if (isMuted && onUnmute) {
+                                    onUnmute();
+                                    onClose();
+                                } else {
+                                    setActiveSubMenu(activeSubMenu === 'mute' ? null : 'mute');
+                                    setActiveSoundMenu(false);
+                                }
+                            }} 
+                        />
+                    );
+                })()}
+                {conversation.type === 'group' && onOpenGroupSettings && (
+                    <ContextMenuItem 
+                        icon={<svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>} 
+                        label="Group Settings" 
+                        onClick={() => { onOpenGroupSettings(); onClose(); }} 
+                    />
+                )}
                 <ContextMenuItem 
                     icon={<svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14l4 4V4c0-1.1-.9-2-2-2zm-1 9c0 2.21-1.79 4-4 4s-4-1.79-4-4 1.79-4 4-4 4 1.79 4 4z"/></svg>} 
                     label="Mark As Unread" 
@@ -121,17 +142,17 @@ export const ConversationContextMenu: React.FC<ConversationContextMenuProps> = (
                     <ContextMenuItem 
                         icon={<BellZIcon className="h-4 w-4" />} 
                         label="For 1 Hour" 
-                        onClick={onClose} 
+                        onClick={() => { onMute && onMute(Date.now() + 60 * 60 * 1000); onClose(); }} 
                     />
                     <ContextMenuItem 
                         icon={<BellZIcon className="h-4 w-4" />} 
                         label="For 8 Hours" 
-                        onClick={onClose} 
+                        onClick={() => { onMute && onMute(Date.now() + 8 * 60 * 60 * 1000); onClose(); }} 
                     />
                     <ContextMenuItem 
                         icon={<BellZSmallIcon className="h-4 w-4" />} 
                         label="For 3 Days" 
-                        onClick={onClose} 
+                        onClick={() => { onMute && onMute(Date.now() + 3 * 24 * 60 * 60 * 1000); onClose(); }} 
                     />
                     <div className="h-px bg-slate-100 my-1.5" />
                     <ContextMenuItem 
@@ -142,7 +163,7 @@ export const ConversationContextMenu: React.FC<ConversationContextMenuProps> = (
                     <ContextMenuItem 
                         icon={<BellOffIcon className="h-4 w-4" />} 
                         label="Forever" 
-                        onClick={onClose} 
+                        onClick={() => { onMute && onMute(-1); onClose(); }} 
                     />
                     <div className="h-px bg-slate-100 my-1.5" />
                     <ContextMenuItem 

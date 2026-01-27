@@ -9,6 +9,7 @@ interface ConversationListItemProps {
     onSelect: (id: string) => void;
     onContextMenu: (e: React.MouseEvent, conversation: Conversation) => void;
     currentUserId?: string;
+    isMuted?: boolean;
 }
 
 const Avatar: React.FC<{ user: User }> = ({ user }) => {
@@ -34,7 +35,7 @@ const Avatar: React.FC<{ user: User }> = ({ user }) => {
     );
 }
 
-export const ConversationListItem: React.FC<ConversationListItemProps> = ({ conversation, isSelected, onSelect, onContextMenu, currentUserId }) => {
+export const ConversationListItem: React.FC<ConversationListItemProps> = ({ conversation, isSelected, onSelect, onContextMenu, currentUserId, isMuted = false }) => {
     const isGroup = conversation.type === 'group';
     
     // For groups, use group name. For DMs, find the other participant
@@ -92,7 +93,15 @@ export const ConversationListItem: React.FC<ConversationListItemProps> = ({ conv
             )}
             <div className="flex-1 min-w-0">
                 <div className="flex justify-between items-center">
-                    <p className="text-sm font-semibold text-slate-800 truncate">{displayName}</p>
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-slate-800 truncate">{displayName}</p>
+                        {isMuted && (
+                            <svg className="h-4 w-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                            </svg>
+                        )}
+                    </div>
                     <div className="flex flex-col items-end">
                         <p className="text-xs text-slate-500">{time}</p>
                     </div>

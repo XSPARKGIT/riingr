@@ -1,5 +1,5 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
-import type { Message, Conversation, SyncQueueItem } from '../types';
+import type { Message, Conversation, SyncQueueItem, MutedConversation } from '../types';
 
 // IndexedDB Schema
 interface RingrDB extends DBSchema {
@@ -303,4 +303,24 @@ export const setLastSyncTimestampForConversation = async (
     lastSyncStatus: 'success',
     syncVersion: (existing?.syncVersion || 0) + 1,
   });
+};
+
+/**
+ * Get muted conversations for a user from local storage
+ */
+export const getMutedConversationsLocally = async (userId: string): Promise<MutedConversation[]> => {
+  const db = await initLocalDB();
+  const userMetadata = await db.get('metadata', `user_${userId}_muted`);
+  return userMetadata || [];
+};
+
+/**
+ * Save muted conversations for a user to local storage
+ */
+export const saveMutedConversationsLocally = async (
+  userId: string,
+  muted: MutedConversation[]
+): Promise<void> => {
+  const db = await initLocalDB();
+  await db.put('metadata', muted, `user_${userId}_muted`);
 };

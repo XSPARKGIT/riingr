@@ -58,9 +58,8 @@
         "NSHighResolutionCapable": true
       },
       "minimumSystemVersion": "11.0.0",
-      "hardenedRuntime": false,
-      "gatekeeperAssess": false,
-      "identity": null
+      "hardenedRuntime": true,
+      "gatekeeperAssess": true
     }
   }
 }

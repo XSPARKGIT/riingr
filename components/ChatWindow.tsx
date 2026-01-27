@@ -30,8 +30,9 @@ const ChatHeader: React.FC<{
     onClick: () => void,
     onSummarize: () => void,
     isSummarizing: boolean,
-    currentUserId?: string
-}> = ({ conversation, onBack, onClick, onSummarize, isSummarizing, currentUserId }) => {
+    currentUserId?: string,
+    isMuted?: boolean;
+}> = ({ conversation, onBack, onClick, onSummarize, isSummarizing, currentUserId, isMuted = false }) => {
     const isGroup = conversation.type === 'group';
     const otherParticipant = conversation.participants.find(p => p.id !== 'me' && p.id !== currentUserId);
 
@@ -61,7 +62,11 @@ const ChatHeader: React.FC<{
 
     const displayName = isGroup ? conversation.name : otherParticipant?.name;
     const subText = isGroup 
-        ? `${conversation.participants.length} members`
+        ? (conversation.description 
+            ? conversation.description.length > 30 
+                ? conversation.description.substring(0, 30) + '...' 
+                : conversation.description
+            : `${conversation.participants.length} members`)
         : otherParticipant?.isOnline ? 'Active Now' : 'Last seen recently';
 
     return (
@@ -82,7 +87,15 @@ const ChatHeader: React.FC<{
                     )}
                 </div>
                 <div className="ml-2 sm:ml-3 truncate min-w-0">
-                    <h3 className="text-sm sm:text-[15px] font-bold text-slate-800 leading-tight truncate">{displayName}</h3>
+                    <div className="flex items-center gap-2">
+                        <h3 className="text-sm sm:text-[15px] font-bold text-slate-800 leading-tight truncate">{displayName}</h3>
+                        {isMuted && (
+                            <svg className="h-3 w-3 sm:h-4 sm:w-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                            </svg>
+                        )}
+                    </div>
                     <p className="text-[9px] sm:text-[11px] text-slate-400 font-semibold uppercase tracking-wider truncate">
                         {subText}
                     </p>
@@ -158,7 +171,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     onToggleStar,
     onAddReaction,
     onUpdateMessage,
-    currentUserId
+    currentUserId,
+    onOpenGroupSettings,
+    isMuted = false
 }) => {
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -336,10 +351,17 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             <ChatHeader 
                 conversation={conversation} 
                 onBack={onBack} 
-                onClick={() => setIsProfileOpen(true)}
+                onClick={() => {
+                    if (conversation.type === 'group' && onOpenGroupSettings) {
+                        onOpenGroupSettings();
+                    } else {
+                        setIsProfileOpen(true);
+                    }
+                }}
                 onSummarize={handleSummarize}
                 isSummarizing={isSummarizing}
                 currentUserId={currentUserId}
+                isMuted={isMuted}
             />
 
             {/* Pinned Message Banner */}

@@ -1,4 +1,17 @@
 
+export type ConversationNotificationLevel = 'all' | 'mentions' | 'silent';
+
+export type ConversationPreference = {
+  conversationId: string;
+  notificationLevel: ConversationNotificationLevel;
+};
+
+export type BlockedUser = {
+  userId: string;
+  reason?: string;
+  blockedAt: number;
+};
+
 export type User = {
   id: string;
   name: string;
@@ -10,6 +23,9 @@ export type User = {
   birthday?: string;
   status?: string;
   profileComplete?: boolean;
+  mutedConversations?: MutedConversation[];
+  conversationPreferences?: ConversationPreference[];
+  blockedUsers?: BlockedUser[];
 };
 
 export type MessageStatus = 'sent' | 'delivered' | 'read';
@@ -53,18 +69,35 @@ export type Message = {
   readBy?: string[]; // Array of user IDs who read the message (for group chats)
   deliveredTo?: string[]; // Array of user IDs who received the message (for group chats)
   updatedAt?: number; // Timestamp of last update for conflict resolution
+  mentions?: string[]; // User IDs mentioned in this message
 };
 
 export type ConversationType = 'dm' | 'group';
+
+export type MutedConversation = {
+  conversationId: string;
+  mutedUntil: number | null; // null = forever, number = timestamp
+};
 
 export type Conversation = {
   id: string;
   type: ConversationType;
   name?: string;
   avatar?: string;
+  // Optional long-form description / about text
+  description?: string;
   participants: User[];
   messages: Message[];
   admins?: string[];
+  owners?: string[];
+  moderators?: string[];
+  pinnedMessageIds?: string[];
+  theme?: {
+    accentColor?: string;
+    backgroundVariant?: 'default' | 'soft' | 'bold';
+  };
+  pendingMemberIds?: string[];
+  inviteLinkEnabled?: boolean;
   isPinned?: boolean;
 };
 

@@ -657,6 +657,7 @@ export const syncConversationToFirestore = async (
 
   if (conversation.name) firestoreData.name = conversation.name;
   if (conversation.avatar) firestoreData.avatar = conversation.avatar;
+  if (conversation.description !== undefined) firestoreData.description = conversation.description || null;
   if (conversation.admins) firestoreData.admins = conversation.admins;
 
   await setDoc(conversationRef, firestoreData, { merge: true });
@@ -849,6 +850,7 @@ const syncConversationsFromFirestore = async (userId: string): Promise<void> => 
       type: data.type || 'dm',
       name: data.name,
       avatar: data.avatar,
+      description: data.description,
       participants,
       messages: [], // Messages loaded separately
       admins: data.admins,

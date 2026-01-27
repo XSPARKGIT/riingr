@@ -11,10 +11,21 @@ import {
   getDocs,
   onSnapshot,
   arrayUnion,
+  arrayRemove,
+  Timestamp,
+  addDoc,
 } from 'firebase/firestore';
 import { db } from './firebaseConfig';
 import { auth } from './firebaseConfig';
-import type { User, Conversation } from '../types';
+import type {
+  User,
+  Conversation,
+  Message,
+  MutedConversation,
+  ConversationPreference,
+  ConversationNotificationLevel,
+  BlockedUser,
+} from '../types';
 
 /**
  * Create or update user profile in Firestore
@@ -501,6 +512,894 @@ export const createGroupConversation = async (
 };
 
 /**
+ * Create a system message in a conversation
+ */
+const createSystemMessage = async (
+  conversationId: string,
+  text: string
+): Promise<void> => {
+  try {
+    const messageId = `system_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const messageRef = doc(db, 'conversations', conversationId, 'messages', messageId);
+    
+    await setDoc(messageRef, {
+      id: messageId,
+      text,
+      timestamp: serverTimestamp(),
+      senderId: 'system',
+      isSystem: true,
+      status: 'sent',
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+  } catch (error) {
+    console.error('Error creating system message:', error);
+    // Don't throw - system messages are not critical
+  }
+};
+
+/**
+ * Update group conversation (name, avatar, description)
+ */
+export const updateGroupConversation = async (
+  groupId: string,
+  updates: Partial<Conversation>,
+  updatedBy: string
+): Promise<void> => {
+  try {
+    const conversationRef = doc(db, 'conversations', groupId);
+    const conversationSnap = await getDoc(conversationRef);
+    
+    if (!conversationSnap.exists()) {
+      throw new Error('Group not found');
+    }
+    
+    const data = conversationSnap.data();
+    
+    // Validate it's a group
+    if (data.type !== 'group') {
+      throw new Error('Conversation is not a group');
+    }
+    
+    // Validate admin permissions
+    if (!data.admins || !data.admins.includes(updatedBy)) {
+      throw new Error('Only admins can update group details');
+    }
+    
+    // Build update data
+    const updateData: any = {
+      updatedAt: serverTimestamp(),
+    };
+    
+    // Track what changed for system messages
+    const oldName = data.name;
+    const oldDescription = data.description;
+    
+    if (updates.name !== undefined) {
+      if (!updates.name || updates.name.trim().length < 2) {
+        throw new Error('Group name must be at least 2 characters');
+      }
+      if (updates.name.trim().length > 50) {
+        throw new Error('Group name must be 50 characters or less');
+      }
+      updateData.name = updates.name.trim();
+    }
+    
+    if (updates.avatar !== undefined) {
+      updateData.avatar = updates.avatar || null;
+    }
+    
+    if (updates.description !== undefined) {
+      if (updates.description && updates.description.length > 500) {
+        throw new Error('Group description must be 500 characters or less');
+      }
+      updateData.description = updates.description || null;
+    }
+    
+    // Update Firestore
+    await updateDoc(conversationRef, updateData);
+    
+    // Create system messages for significant changes
+    if (updates.name !== undefined && updates.name !== oldName) {
+      await createSystemMessage(groupId, `Group name changed to "${updates.name}"`);
+    }
+    
+    if (updates.description !== undefined && updates.description !== oldDescription) {
+      await createSystemMessage(groupId, 'Group description updated');
+    }
+    
+    console.log('✅ Group conversation updated:', groupId);
+  } catch (error) {
+    console.error('Error updating group conversation:', error);
+    throw error;
+  }
+};
+
+/**
+ * Update group name
+ */
+export const updateGroupName = async (
+  groupId: string,
+  name: string,
+  updatedBy: string
+): Promise<void> => {
+  return updateGroupConversation(groupId, { name }, updatedBy);
+};
+
+/**
+ * Update group description
+ */
+export const updateGroupDescription = async (
+  groupId: string,
+  description: string,
+  updatedBy: string
+): Promise<void> => {
+  return updateGroupConversation(groupId, { description }, updatedBy);
+};
+
+/**
+ * Update group avatar
+ */
+export const updateGroupAvatar = async (
+  groupId: string,
+  avatarUrl: string,
+  updatedBy: string
+): Promise<void> => {
+  return updateGroupConversation(groupId, { avatar: avatarUrl }, updatedBy);
+};
+
+/**
+ * Add member to group
+ */
+export const addMemberToGroup = async (
+  groupId: string,
+  userId: string,
+  addedBy: string
+): Promise<void> => {
+  try {
+    const conversationRef = doc(db, 'conversations', groupId);
+    const conversationSnap = await getDoc(conversationRef);
+    
+    if (!conversationSnap.exists()) {
+      throw new Error('Group not found');
+    }
+    
+    const data = conversationSnap.data();
+    
+    // Validate it's a group
+    if (data.type !== 'group') {
+      throw new Error('Conversation is not a group');
+    }
+    
+    // Validate admin permissions
+    if (!data.admins || !data.admins.includes(addedBy)) {
+      throw new Error('Only admins can add members');
+    }
+    
+    // Check if user is already a member
+    if (data.participants && data.participants.includes(userId)) {
+      throw new Error('User is already a member of this group');
+    }
+    
+    // Get user name for system message
+    const userDoc = await getDoc(doc(db, 'users', userId));
+    if (!userDoc.exists()) {
+      throw new Error('User not found');
+    }
+    const userName = userDoc.data().name || 'Unknown User';
+    
+    // Add user to participants
+    await updateDoc(conversationRef, {
+      participants: arrayUnion(userId),
+      updatedAt: serverTimestamp(),
+    });
+    
+    // Create system message
+    await createSystemMessage(groupId, `${userName} was added to the group`);
+    
+    console.log('✅ Member added to group:', { groupId, userId });
+  } catch (error) {
+    console.error('Error adding member to group:', error);
+    throw error;
+  }
+};
+
+/**
+ * Remove member from group
+ */
+export const removeMemberFromGroup = async (
+  groupId: string,
+  userId: string,
+  removedBy: string
+): Promise<void> => {
+  try {
+    const conversationRef = doc(db, 'conversations', groupId);
+    const conversationSnap = await getDoc(conversationRef);
+    
+    if (!conversationSnap.exists()) {
+      throw new Error('Group not found');
+    }
+    
+    const data = conversationSnap.data();
+    
+    // Validate it's a group
+    if (data.type !== 'group') {
+      throw new Error('Conversation is not a group');
+    }
+    
+    // Validate admin permissions
+    if (!data.admins || !data.admins.includes(removedBy)) {
+      throw new Error('Only admins can remove members');
+    }
+    
+    // Check if user is a member
+    if (!data.participants || !data.participants.includes(userId)) {
+      throw new Error('User is not a member of this group');
+    }
+    
+    // Cannot remove last admin
+    if (data.admins.includes(userId) && data.admins.length === 1) {
+      throw new Error('Cannot remove the last admin');
+    }
+    
+    // Get user name for system message
+    const userDoc = await getDoc(doc(db, 'users', userId));
+    const userName = userDoc.exists() ? (userDoc.data().name || 'Unknown User') : 'Unknown User';
+    
+    // Remove user from participants and admins (if admin)
+    const updates: any = {
+      participants: arrayRemove(userId),
+      updatedAt: serverTimestamp(),
+    };
+    
+    if (data.admins.includes(userId)) {
+      updates.admins = arrayRemove(userId);
+    }
+    
+    await updateDoc(conversationRef, updates);
+    
+    // Create system message
+    await createSystemMessage(groupId, `${userName} was removed from the group`);
+    
+    console.log('✅ Member removed from group:', { groupId, userId });
+  } catch (error) {
+    console.error('Error removing member from group:', error);
+    throw error;
+  }
+};
+
+/**
+ * Leave group
+ */
+export const leaveGroup = async (
+  groupId: string,
+  userId: string
+): Promise<void> => {
+  try {
+    const conversationRef = doc(db, 'conversations', groupId);
+    const conversationSnap = await getDoc(conversationRef);
+    
+    if (!conversationSnap.exists()) {
+      throw new Error('Group not found');
+    }
+    
+    const data = conversationSnap.data();
+    
+    // Validate it's a group
+    if (data.type !== 'group') {
+      throw new Error('Conversation is not a group');
+    }
+    
+    // Check if user is a member
+    if (!data.participants || !data.participants.includes(userId)) {
+      throw new Error('User is not a member of this group');
+    }
+    
+    // Get user name for system message
+    const userDoc = await getDoc(doc(db, 'users', userId));
+    const userName = userDoc.exists() ? (userDoc.data().name || 'Unknown User') : 'Unknown User';
+    
+    // If user is admin and last admin, transfer to another member
+    if (data.admins && data.admins.includes(userId) && data.admins.length === 1) {
+      // Find another member to make admin
+      const otherMembers = data.participants.filter((id: string) => id !== userId);
+      if (otherMembers.length > 0) {
+        await updateDoc(conversationRef, {
+          admins: arrayUnion(otherMembers[0]),
+        });
+      }
+    }
+    
+    // Remove user from participants and admins (if admin)
+    const updates: any = {
+      participants: arrayRemove(userId),
+      updatedAt: serverTimestamp(),
+    };
+    
+    if (data.admins && data.admins.includes(userId)) {
+      updates.admins = arrayRemove(userId);
+    }
+    
+    await updateDoc(conversationRef, updates);
+    
+    // Create system message
+    await createSystemMessage(groupId, `${userName} left the group`);
+    
+    // If user was the last member, delete the group
+    const updatedSnap = await getDoc(conversationRef);
+    const updatedData = updatedSnap.data();
+    if (!updatedData.participants || updatedData.participants.length === 0) {
+      await deleteDoc(conversationRef);
+      console.log('✅ Group deleted (no members left):', groupId);
+    } else {
+      console.log('✅ User left group:', { groupId, userId });
+    }
+  } catch (error) {
+    console.error('Error leaving group:', error);
+    throw error;
+  }
+};
+
+/**
+ * Transfer admin rights to another user
+ */
+export const transferAdminRights = async (
+  groupId: string,
+  newAdminId: string,
+  currentAdminId: string
+): Promise<void> => {
+  try {
+    const conversationRef = doc(db, 'conversations', groupId);
+    const conversationSnap = await getDoc(conversationRef);
+    
+    if (!conversationSnap.exists()) {
+      throw new Error('Group not found');
+    }
+    
+    const data = conversationSnap.data();
+    
+    // Validate it's a group
+    if (data.type !== 'group') {
+      throw new Error('Conversation is not a group');
+    }
+    
+    // Validate current admin is admin
+    if (!data.admins || !data.admins.includes(currentAdminId)) {
+      throw new Error('Only admins can transfer admin rights');
+    }
+    
+    // Check if new admin is already admin
+    if (data.admins.includes(newAdminId)) {
+      throw new Error('User is already an admin');
+    }
+    
+    // Check if new admin is a member
+    if (!data.participants || !data.participants.includes(newAdminId)) {
+      throw new Error('User must be a member to become an admin');
+    }
+    
+    // Get user names for system message
+    const newAdminDoc = await getDoc(doc(db, 'users', newAdminId));
+    const newAdminName = newAdminDoc.exists() ? (newAdminDoc.data().name || 'Unknown User') : 'Unknown User';
+    
+    // Add new admin
+    await updateDoc(conversationRef, {
+      admins: arrayUnion(newAdminId),
+      updatedAt: serverTimestamp(),
+    });
+    
+    // Create system message
+    await createSystemMessage(groupId, `${newAdminName} was made an admin`);
+    
+    console.log('✅ Admin rights transferred:', { groupId, newAdminId });
+  } catch (error) {
+    console.error('Error transferring admin rights:', error);
+    throw error;
+  }
+};
+
+/**
+ * Remove admin rights from a user
+ */
+export const removeAdminRights = async (
+  groupId: string,
+  adminId: string,
+  removedBy: string
+): Promise<void> => {
+  try {
+    const conversationRef = doc(db, 'conversations', groupId);
+    const conversationSnap = await getDoc(conversationRef);
+    
+    if (!conversationSnap.exists()) {
+      throw new Error('Group not found');
+    }
+    
+    const data = conversationSnap.data();
+    
+    // Validate it's a group
+    if (data.type !== 'group') {
+      throw new Error('Conversation is not a group');
+    }
+    
+    // Validate remover is admin
+    if (!data.admins || !data.admins.includes(removedBy)) {
+      throw new Error('Only admins can remove admin rights');
+    }
+    
+    // Cannot remove last admin
+    if (data.admins.length === 1) {
+      throw new Error('Cannot remove the last admin');
+    }
+    
+    // Check if user is admin
+    if (!data.admins.includes(adminId)) {
+      throw new Error('User is not an admin');
+    }
+    
+    // Get user name for system message
+    const userDoc = await getDoc(doc(db, 'users', adminId));
+    const userName = userDoc.exists() ? (userDoc.data().name || 'Unknown User') : 'Unknown User';
+    
+    // Remove admin rights
+    await updateDoc(conversationRef, {
+      admins: arrayRemove(adminId),
+      updatedAt: serverTimestamp(),
+    });
+    
+    // Create system message
+    await createSystemMessage(groupId, `${userName} is no longer an admin`);
+    
+    console.log('✅ Admin rights removed:', { groupId, adminId });
+  } catch (error) {
+    console.error('Error removing admin rights:', error);
+    throw error;
+  }
+};
+
+/**
+ * Mute a conversation for a user
+ */
+export const muteConversation = async (
+  userId: string,
+  conversationId: string,
+  mutedUntil: number | null
+): Promise<void> => {
+  try {
+    const userRef = doc(db, 'users', userId);
+    const userSnap = await getDoc(userRef);
+    
+    if (!userSnap.exists()) {
+      throw new Error('User not found');
+    }
+    
+    const userData = userSnap.data();
+    const mutedConversations = userData.mutedConversations || [];
+    
+    // Remove existing mute for this conversation if any
+    const filtered = mutedConversations.filter((m: MutedConversation) => m.conversationId !== conversationId);
+    
+    // Add new mute entry
+    filtered.push({
+      conversationId,
+      mutedUntil,
+    });
+    
+    await updateDoc(userRef, {
+      mutedConversations: filtered,
+      updatedAt: serverTimestamp(),
+    });
+    
+    console.log('✅ Conversation muted:', { userId, conversationId, mutedUntil });
+  } catch (error) {
+    console.error('Error muting conversation:', error);
+    throw error;
+  }
+};
+
+/**
+ * Unmute a conversation for a user
+ */
+export const unmuteConversation = async (
+  userId: string,
+  conversationId: string
+): Promise<void> => {
+  try {
+    const userRef = doc(db, 'users', userId);
+    const userSnap = await getDoc(userRef);
+    
+    if (!userSnap.exists()) {
+      throw new Error('User not found');
+    }
+    
+    const userData = userSnap.data();
+    const mutedConversations = userData.mutedConversations || [];
+    
+    // Remove mute entry for this conversation
+    const filtered = mutedConversations.filter((m: MutedConversation) => m.conversationId !== conversationId);
+    
+    await updateDoc(userRef, {
+      mutedConversations: filtered,
+      updatedAt: serverTimestamp(),
+    });
+    
+    console.log('✅ Conversation unmuted:', { userId, conversationId });
+  } catch (error) {
+    console.error('Error unmuting conversation:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get muted conversations for a user
+ */
+export const getMutedConversations = async (
+  userId: string
+): Promise<MutedConversation[]> => {
+  try {
+    const userRef = doc(db, 'users', userId);
+    const userSnap = await getDoc(userRef);
+    
+    if (!userSnap.exists()) {
+      return [];
+    }
+    
+    const userData = userSnap.data();
+    return userData.mutedConversations || [];
+  } catch (error) {
+    console.error('Error getting muted conversations:', error);
+    return [];
+  }
+};
+
+/**
+ * Get media messages (images/GIFs) for a conversation
+ */
+export const getMediaMessages = async (
+  conversationId: string
+): Promise<Message[]> => {
+  const messagesRef = collection(
+    db,
+    'conversations',
+    conversationId,
+    'messages'
+  );
+
+  const q = query(messagesRef, orderBy('timestamp', 'desc'));
+  const snapshot = await getDocs(q);
+
+  const results: Message[] = [];
+
+  snapshot.forEach((docSnap) => {
+    const data = docSnap.data();
+    if (!data.imageUrl) return;
+
+    results.push({
+      id: docSnap.id,
+      text: data.text,
+      imageUrl: data.imageUrl,
+      timestamp: data.timestamp?.toMillis?.() ?? Date.now(),
+      senderId: data.senderId,
+      replyToId: data.replyToId,
+      isSystem: data.isSystem,
+      status: data.status,
+      isPinned: data.isPinned,
+      isStarred: data.isStarred,
+      reactions: data.reactions || [],
+      location: data.location,
+      poll: data.poll,
+      file: data.file,
+      readBy: data.readBy || [],
+      deliveredTo: data.deliveredTo || [],
+      updatedAt: data.updatedAt?.toMillis?.() ?? undefined,
+      mentions: data.mentions || [],
+    } as Message);
+  });
+
+  return results;
+};
+
+/**
+ * Get file messages (documents) for a conversation
+ */
+export const getFileMessages = async (
+  conversationId: string
+): Promise<Message[]> => {
+  const messagesRef = collection(
+    db,
+    'conversations',
+    conversationId,
+    'messages'
+  );
+
+  const q = query(messagesRef, orderBy('timestamp', 'desc'));
+  const snapshot = await getDocs(q);
+
+  const results: Message[] = [];
+
+  snapshot.forEach((docSnap) => {
+    const data = docSnap.data();
+    if (!data.file) return;
+
+    results.push({
+      id: docSnap.id,
+      text: data.text,
+      imageUrl: data.imageUrl,
+      timestamp: data.timestamp?.toMillis?.() ?? Date.now(),
+      senderId: data.senderId,
+      replyToId: data.replyToId,
+      isSystem: data.isSystem,
+      status: data.status,
+      isPinned: data.isPinned,
+      isStarred: data.isStarred,
+      reactions: data.reactions || [],
+      location: data.location,
+      poll: data.poll,
+      file: data.file,
+      readBy: data.readBy || [],
+      deliveredTo: data.deliveredTo || [],
+      updatedAt: data.updatedAt?.toMillis?.() ?? undefined,
+      mentions: data.mentions || [],
+    } as Message);
+  });
+
+  return results;
+};
+
+/**
+ * Get pinned messages for a conversation
+ */
+export const getPinnedMessages = async (
+  conversationId: string
+): Promise<Message[]> => {
+  const messagesRef = collection(
+    db,
+    'conversations',
+    conversationId,
+    'messages'
+  );
+
+  const q = query(
+    messagesRef,
+    where('isPinned', '==', true),
+    orderBy('timestamp', 'desc')
+  );
+  const snapshot = await getDocs(q);
+
+  const results: Message[] = [];
+
+  snapshot.forEach((docSnap) => {
+    const data = docSnap.data();
+    results.push({
+      id: docSnap.id,
+      text: data.text,
+      imageUrl: data.imageUrl,
+      timestamp: data.timestamp?.toMillis?.() ?? Date.now(),
+      senderId: data.senderId,
+      replyToId: data.replyToId,
+      isSystem: data.isSystem,
+      status: data.status,
+      isPinned: true,
+      isStarred: data.isStarred,
+      reactions: data.reactions || [],
+      location: data.location,
+      poll: data.poll,
+      file: data.file,
+      readBy: data.readBy || [],
+      deliveredTo: data.deliveredTo || [],
+      updatedAt: data.updatedAt?.toMillis?.() ?? undefined,
+      mentions: data.mentions || [],
+    } as Message);
+  });
+
+  return results;
+};
+
+/**
+ * Get per-conversation notification preferences for a user
+ */
+export const getConversationNotificationPreferences = async (
+  userId: string
+): Promise<ConversationPreference[]> => {
+  const userRef = doc(db, 'users', userId);
+  const snap = await getDoc(userRef);
+  if (!snap.exists()) return [];
+
+  const data = snap.data();
+  return (data.conversationPreferences || []) as ConversationPreference[];
+};
+
+/**
+ * Set notification level for a specific conversation
+ */
+export const setConversationNotificationLevel = async (
+  userId: string,
+  conversationId: string,
+  level: ConversationNotificationLevel
+): Promise<void> => {
+  const userRef = doc(db, 'users', userId);
+  const snap = await getDoc(userRef);
+  if (!snap.exists()) throw new Error('User not found');
+
+  const data = snap.data();
+  const prefs: ConversationPreference[] =
+    (data.conversationPreferences as ConversationPreference[]) || [];
+
+  const filtered = prefs.filter((p) => p.conversationId !== conversationId);
+  filtered.push({ conversationId, notificationLevel: level });
+
+  await updateDoc(userRef, {
+    conversationPreferences: filtered,
+    updatedAt: serverTimestamp(),
+  });
+};
+
+/**
+ * Block a user (stores in blocker user document)
+ */
+export const blockUser = async (
+  blockingUserId: string,
+  blockedUserId: string,
+  reason?: string
+): Promise<void> => {
+  const userRef = doc(db, 'users', blockingUserId);
+  const snap = await getDoc(userRef);
+  if (!snap.exists()) throw new Error('User not found');
+
+  const data = snap.data();
+  const blocked: BlockedUser[] =
+    (data.blockedUsers as BlockedUser[]) || [];
+
+  if (blocked.some((b) => b.userId === blockedUserId)) {
+    return;
+  }
+
+  blocked.push({
+    userId: blockedUserId,
+    reason,
+    blockedAt: Date.now(),
+  });
+
+  await updateDoc(userRef, {
+    blockedUsers: blocked,
+    updatedAt: serverTimestamp(),
+  });
+};
+
+/**
+ * Report a user (writes to 'reports' collection)
+ */
+export const reportUser = async (
+  reporterId: string,
+  targetUserId: string,
+  context: { conversationId?: string; messageId?: string; reason?: string }
+): Promise<void> => {
+  const reportsRef = collection(db, 'reports');
+  await addDoc(reportsRef, {
+    reporterId,
+    targetUserId,
+    conversationId: context.conversationId || null,
+    messageId: context.messageId || null,
+    reason: context.reason || null,
+    createdAt: serverTimestamp(),
+  });
+};
+
+/**
+ * Create a simple invite link token for a group
+ */
+export const createGroupInviteLink = async (
+  groupId: string
+): Promise<string> => {
+  const token = `${groupId}_${Date.now()}_${Math.random()
+    .toString(36)
+    .slice(2, 8)}`;
+
+  const inviteRef = doc(db, 'invites', token);
+  await setDoc(inviteRef, {
+    groupId,
+    createdAt: serverTimestamp(),
+    active: true,
+  });
+
+  // Mark group as having invite links enabled
+  const groupRef = doc(db, 'conversations', groupId);
+  await updateDoc(groupRef, {
+    inviteLinkEnabled: true,
+    updatedAt: serverTimestamp(),
+  });
+
+  return token;
+};
+
+/**
+ * Request to join a group via invite token (adds to pendingMemberIds)
+ */
+export const requestJoinGroupByInvite = async (
+  token: string,
+  userId: string
+): Promise<void> => {
+  const inviteRef = doc(db, 'invites', token);
+  const inviteSnap = await getDoc(inviteRef);
+  if (!inviteSnap.exists()) throw new Error('Invalid invite link');
+
+  const inviteData = inviteSnap.data();
+  if (!inviteData.active) throw new Error('Invite link is no longer active');
+
+  const groupId = inviteData.groupId as string;
+  const groupRef = doc(db, 'conversations', groupId);
+  const groupSnap = await getDoc(groupRef);
+  if (!groupSnap.exists()) throw new Error('Group not found');
+
+  const data = groupSnap.data();
+  const pending: string[] = data.pendingMemberIds || [];
+  if (pending.includes(userId)) return;
+
+  await updateDoc(groupRef, {
+    pendingMemberIds: arrayUnion(userId),
+    updatedAt: serverTimestamp(),
+  });
+};
+
+/**
+ * Approve a pending member into the group
+ */
+export const approvePendingMember = async (
+  groupId: string,
+  userId: string,
+  approvedBy: string
+): Promise<void> => {
+  const groupRef = doc(db, 'conversations', groupId);
+  const groupSnap = await getDoc(groupRef);
+  if (!groupSnap.exists()) throw new Error('Group not found');
+
+  const data = groupSnap.data();
+  if (data.type !== 'group') throw new Error('Conversation is not a group');
+
+  const owners: string[] = data.owners || [];
+  const admins: string[] = data.admins || [];
+  const isOwner = owners.includes(approvedBy);
+  const isAdmin = admins.includes(approvedBy);
+  if (!isOwner && !isAdmin) {
+    throw new Error('Only owners or admins can approve members');
+  }
+
+  await updateDoc(groupRef, {
+    participants: arrayUnion(userId),
+    pendingMemberIds: arrayRemove(userId),
+    updatedAt: serverTimestamp(),
+  });
+};
+
+/**
+ * Reject a pending member from the group
+ */
+export const rejectPendingMember = async (
+  groupId: string,
+  userId: string,
+  rejectedBy: string
+): Promise<void> => {
+  const groupRef = doc(db, 'conversations', groupId);
+  const groupSnap = await getDoc(groupRef);
+  if (!groupSnap.exists()) throw new Error('Group not found');
+
+  const data = groupSnap.data();
+  if (data.type !== 'group') throw new Error('Conversation is not a group');
+
+  const owners: string[] = data.owners || [];
+  const admins: string[] = data.admins || [];
+  const isOwner = owners.includes(rejectedBy);
+  const isAdmin = admins.includes(rejectedBy);
+  if (!isOwner && !isAdmin) {
+    throw new Error('Only owners or admins can reject members');
+  }
+
+  await updateDoc(groupRef, {
+    pendingMemberIds: arrayRemove(userId),
+    updatedAt: serverTimestamp(),
+  });
+};
+
+/**
  * Subscribe to real-time conversation list updates
  * Returns unsubscribe function
  */
@@ -580,6 +1479,7 @@ export const subscribeToConversations = (
           type: data.type || 'dm',
           name: data.name,
           avatar: data.avatar,
+          description: data.description,
           participants,
           messages: [], // Messages loaded separately via message listener
           admins: data.admins,
