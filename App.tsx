@@ -792,41 +792,17 @@ const App: React.FC = () => {
                 admins: [currentUser.id],
             };
 
-            // Create system message
-            const systemMessage: Message = {
-                id: `system_${Date.now()}`,
-                text: `${currentUser.name} created this group`,
-                timestamp: Date.now(),
-                senderId: 'system',
-                isSystem: true,
-                status: 'sent',
-            };
-
-            // Add system message to conversation
-            newGroup.messages = [systemMessage];
-
-            // Save to local storage
-            const { saveConversationLocally, saveMessageLocally } = await import('./services/localStorageService');
-            await saveConversationLocally(newGroup);
-            await saveMessageLocally(groupId, systemMessage);
-
-            // Sync conversation to Firestore
-            const { syncConversationToFirestore } = await import('./services/syncService');
-            await syncConversationToFirestore(newGroup);
-
-            // Send system message to Firestore
-            const { sendMessage } = await import('./services/syncService');
-            await sendMessage(groupId, systemMessage);
-
-            // Add to conversations state
-            setConversations(prev => [...prev, newGroup]);
-            
-            // Select the new group
-            setSelectedConversationId(groupId);
+            // Group is created in Firestore, real-time listener will add it to state
+            // Just select it after a brief delay to let the listener update
+            setTimeout(() => {
+                setSelectedConversationId(groupId);
+            }, 500);
             
             // Close settings if open
             setSettingsCategory(null);
             setReplyingTo(null);
+            
+            console.log('✅ Group created successfully:', groupId);
         } catch (error) {
             console.error('Error creating group:', error);
             throw error; // Re-throw to let modal handle the error

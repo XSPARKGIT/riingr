@@ -35,13 +35,7 @@ const ChatHeader: React.FC<{
     const isGroup = conversation.type === 'group';
     const otherParticipant = conversation.participants.find(p => p.id !== 'me' && p.id !== currentUserId);
 
-    // Debug logging
-    console.log('🔍 ChatHeader participant data:', {
-        conversationId: conversation.id,
-        currentUserId,
-        participants: conversation.participants.map(p => ({ id: p.id, name: p.name, email: p.email })),
-        otherParticipant: otherParticipant ? { id: otherParticipant.id, name: otherParticipant.name, email: otherParticipant.email } : null,
-    });
+    // Debug logging (removed to reduce console spam)
 
     const renderAvatar = () => {
         if (isGroup) {

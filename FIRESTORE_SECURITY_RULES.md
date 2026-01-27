@@ -54,9 +54,11 @@ service cloud.firestore {
         allow read: if isAuthenticated() && 
           request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
         
-        // Participants can create messages, but senderId must match auth.uid
-        allow create: if isParticipant(conversationId) && 
-          request.resource.data.senderId == request.auth.uid;
+          // Participants can create messages
+          // senderId must match auth.uid OR be 'system' for system messages
+          allow create: if isParticipant(conversationId) && 
+            (request.resource.data.senderId == request.auth.uid || 
+             request.resource.data.senderId == 'system');
         
         // Update rules:
         // - Message sender can update their own messages
@@ -114,7 +116,9 @@ service cloud.firestore {
 
 ### Messages Subcollection
 - **Read**: All participants can read messages in the conversation
-- **Create**: Participants can create messages, but `senderId` must match the authenticated user's ID
+- **Create**: Participants can create messages
+  - Regular messages: `senderId` must match the authenticated user's ID
+  - System messages: `senderId` can be 'system' (for group creation, user joined, etc.)
 - **Update**: 
   - Message senders can update their own messages
   - Any participant can update read/delivered status fields (for read receipts)

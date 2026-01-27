@@ -474,15 +474,23 @@ export const createGroupConversation = async (
     const allParticipants = Array.from(new Set([creatorId, ...participantIds.filter(id => id !== creatorId)]));
     
     const conversationRef = doc(db, 'conversations', groupId);
-    await setDoc(conversationRef, {
+    
+    // Build conversation data, only include avatar if it exists
+    const conversationData: any = {
       type: 'group',
       name: name.trim(),
-      avatar: avatar || undefined,
       participants: allParticipants,
       admins: [creatorId], // Creator is admin
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
-    });
+    };
+    
+    // Only add avatar field if a value is provided
+    if (avatar) {
+      conversationData.avatar = avatar;
+    }
+    
+    await setDoc(conversationRef, conversationData);
     
     console.log('✅ Group conversation created:', groupId);
     return groupId;
