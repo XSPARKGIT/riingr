@@ -2,18 +2,26 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { SendIcon, PlusIcon, ImageIcon, PinIcon, FlagIcon, MoreIcon, CloseIcon, MessengerIcon, FolderIcon, GiftIcon, StarIcon } from '../constants';
-import type { Message } from '../types';
+import type { Message, User } from '../types';
 import { setTypingStatus, clearTypingStatus } from '../services/firestoreService';
 import GifPicker from './GifPicker';
 import StickerPicker from './StickerPicker';
 
 interface MessageInputProps {
-    onSendMessage: (text?: string, imageUrl?: string, location?: Message['location'], poll?: Message['poll'], file?: Message['file']) => void;
+    onSendMessage: (
+        text?: string,
+        imageUrl?: string,
+        location?: Message['location'],
+        poll?: Message['poll'],
+        file?: Message['file'],
+        mentions?: string[]
+    ) => void;
     onOpenPoll?: () => void;
     onGenerateImage?: (prompt: string) => Promise<string | void>;
     isLoading: boolean;
     conversationId?: string;
     currentUserId?: string;
+    participants?: User[];
 }
 
 interface StagedMedia {
@@ -24,7 +32,15 @@ interface StagedMedia {
     file?: File; // Store original file object for upload
 }
 
-export const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, onOpenPoll, onGenerateImage, isLoading, conversationId, currentUserId }) => {
+export const MessageInput: React.FC<MessageInputProps> = ({
+    onSendMessage,
+    onOpenPoll,
+    onGenerateImage,
+    isLoading,
+    conversationId,
+    currentUserId,
+    participants
+}) => {
     const [text, setText] = useState('');
     const [caption, setCaption] = useState('');
     const [showActions, setShowActions] = useState(false);
@@ -39,6 +55,12 @@ export const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, onOpe
     const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const lastTypingUpdateRef = useRef<number>(0);
     const uploadAbortControllerRef = useRef<AbortController | null>(null);
+    const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+    const [mentions, setMentions] = useState<string[]>([]);
+    const [mentionQuery, setMentionQuery] = useState('');
+    const [mentionSuggestions, setMentionSuggestions] = useState<User[]>([]);
+    const [showMentionList, setShowMentionList] = useState(false);
 
     const handleTyping = () => {
         if (!conversationId || !currentUserId) return;
@@ -78,8 +100,10 @@ export const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, onOpe
             return;
         }
         if (text.trim() && !isLoading) {
-            onSendMessage(text.trim());
+            onSendMessage(text.trim(), undefined, undefined, undefined, undefined, mentions);
             setText('');
+            setMentions([]);
+            setShowMentionList(false);
             setShowActions(false);
         }
     };
@@ -102,11 +126,13 @@ export const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, onOpe
             stagedMedia.dataUrl,
             undefined,
             undefined,
-            stagedMedia.fileInfo
+            stagedMedia.fileInfo,
+            mentions
         );
         
         setStagedMedia(null);
         setCaption('');
+        setMentions([]);
         setShowActions(false);
     };
 
@@ -206,6 +232,28 @@ export const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, onOpe
             }
         };
     }, [conversationId, currentUserId]);
+
+    const renderHighlightedText = (value: string) => {
+        if (!value) {
+            return (
+                <span className="text-slate-400">
+                    {isLoading ? 'Thinking...' : 'Message'}
+                </span>
+            );
+        }
+
+        const parts = value.split(/(@[a-zA-Z0-9_]+)/g);
+        return parts.map((part, idx) => {
+            if (part.startsWith('@')) {
+                return (
+                    <span key={idx} className="text-green-600 font-semibold">
+                        {part}
+                    </span>
+                );
+            }
+            return <span key={idx}>{part}</span>;
+        });
+    };
 
     return (
         <div className="min-h-[60px] sm:min-h-[72px] flex items-center p-2 sm:p-3 bg-white relative">
@@ -331,15 +379,42 @@ export const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, onOpe
                     )}
                 </div>
 
-                <div className="flex-1 relative flex items-center bg-slate-100 rounded-2xl px-3 sm:px-4 py-1 focus-within:ring-2 focus-within:ring-green-500 focus-within:bg-white transition-all overflow-hidden">
+                <div className="flex-1 relative bg-slate-100 rounded-2xl px-3 sm:px-4 py-1 focus-within:ring-2 focus-within:ring-green-500 focus-within:bg-white transition-all overflow-visible">
+                    {/* Highlighted text overlay */}
+                    <div className="absolute inset-x-3 sm:inset-x-4 top-2 bottom-2 pointer-events-none whitespace-pre-wrap break-words text-[14px] sm:text-[15px] text-slate-800 leading-relaxed">
+                        {renderHighlightedText(text)}
+                    </div>
+
                     <textarea
+                        ref={textareaRef}
                         rows={1}
                         value={text}
                         onChange={(e) => {
-                            setText(e.target.value);
+                            const value = e.target.value;
+                            setText(value);
                             e.target.style.height = 'auto';
                             e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
                             handleTyping();
+
+                            // Mention detection based on caret position
+                            const cursor = e.target.selectionStart ?? value.length;
+                            const upToCursor = value.slice(0, cursor);
+                            const match = upToCursor.match(/(^|\s)@([a-zA-Z0-9_]{1,30})$/);
+
+                            if (match && participants && participants.length > 0) {
+                                const query = match[2].toLowerCase();
+                                setMentionQuery(query);
+                                const filtered = participants.filter((u) => {
+                                    const name = (u.name || '').toLowerCase();
+                                    const username = (u.username || '').toLowerCase();
+                                    return name.includes(query) || username.includes(query);
+                                });
+                                setMentionSuggestions(filtered.slice(0, 6));
+                                setShowMentionList(filtered.length > 0);
+                            } else {
+                                setShowMentionList(false);
+                                setMentionQuery('');
+                            }
                         }}
                         onKeyDown={(e) => {
                             if (e.key === 'Enter' && !e.shiftKey) {
@@ -347,10 +422,70 @@ export const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, onOpe
                                 handleSubmit(e);
                             }
                         }}
-                        placeholder={isLoading ? "Thinking..." : "Message"}
-                        className="flex-1 bg-transparent border-none py-2 text-[14px] sm:text-[15px] focus:outline-none resize-none max-h-32 text-slate-800 disabled:opacity-50"
+                        placeholder=""
+                        className="relative w-full bg-transparent border-none py-2 text-[14px] sm:text-[15px] focus:outline-none resize-none max-h-32 text-transparent caret-slate-800 disabled:opacity-50"
                         disabled={isLoading || isGenerating}
                     />
+
+                    {/* Mentions suggestions */}
+                    {showMentionList && mentionSuggestions.length > 0 && (
+                        <div className="absolute -top-1 right-0 left-0 mb-1 translate-y-[-100%] w-full max-h-56 overflow-y-auto bg-white border border-slate-200 rounded-2xl shadow-xl z-50">
+                            {mentionSuggestions.map((user) => (
+                                <button
+                                    key={user.id}
+                                    type="button"
+                                    onClick={() => {
+                                        const displayHandle =
+                                            user.username?.replace(/^@/, '') ||
+                                            (user.name ? user.name.split(' ')[0] : 'user');
+                                        if (!textareaRef.current) return;
+                                        const el = textareaRef.current;
+                                        const cursor = el.selectionStart ?? text.length;
+                                        const before = text.slice(0, cursor);
+                                        const after = text.slice(cursor);
+                                        const replaced = before.replace(
+                                            /@[a-zA-Z0-9_]{0,30}$/,
+                                            `@${displayHandle} `
+                                        );
+                                        const nextText = replaced + after;
+                                        setText(nextText);
+                                        setMentions((prev) =>
+                                            prev.includes(user.id) ? prev : [...prev, user.id]
+                                        );
+                                        setShowMentionList(false);
+                                        setMentionQuery('');
+
+                                        requestAnimationFrame(() => {
+                                            const pos = replaced.length;
+                                            el.selectionStart = el.selectionEnd = pos;
+                                            el.focus();
+                                        });
+                                    }}
+                                    className="w-full flex items-center px-3 py-2 hover:bg-slate-50 text-left"
+                                >
+                                    <div className="h-7 w-7 rounded-full bg-slate-100 mr-2 overflow-hidden flex-shrink-0">
+                                        {user.avatar && (
+                                            <img
+                                                src={user.avatar}
+                                                alt={user.name}
+                                                className="h-full w-full object-cover"
+                                            />
+                                        )}
+                                    </div>
+                                    <div className="flex flex-col min-w-0">
+                                        <span className="text-xs font-bold text-slate-800 truncate">
+                                            {user.name || user.username}
+                                        </span>
+                                        {user.username && (
+                                            <span className="text-[10px] font-semibold text-slate-400 truncate">
+                                                {user.username}
+                                            </span>
+                                        )}
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 <button

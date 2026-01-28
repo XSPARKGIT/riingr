@@ -10,7 +10,14 @@ import { subscribeToTypingStatus, markConversationMessagesAsRead } from '../serv
 
 interface ChatWindowProps {
     conversation: Conversation;
-    onSendMessage: (text?: string, imageUrl?: string, location?: Message['location'], poll?: Message['poll'], file?: Message['file']) => void;
+    onSendMessage: (
+        text?: string,
+        imageUrl?: string,
+        location?: Message['location'],
+        poll?: Message['poll'],
+        file?: Message['file'],
+        mentions?: string[]
+    ) => void;
     onVotePoll: (messageId: string, optionIndex: number) => void;
     isLoading: boolean;
     onBack?: () => void;
@@ -22,6 +29,7 @@ interface ChatWindowProps {
     onAddReaction: (id: string, emoji: string) => void;
     onUpdateMessage?: (messageId: string, updates: Partial<Message>) => void;
     currentUserId?: string; // Add current user ID prop
+    onStartPrivateConversation?: (user: User) => void;
 }
 
 const ChatHeader: React.FC<{
@@ -173,13 +181,15 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     onUpdateMessage,
     currentUserId,
     onOpenGroupSettings,
-    isMuted = false
+    isMuted = false,
+    onStartPrivateConversation
 }) => {
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [isGeneratingImage, setIsGeneratingImage] = useState(false);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, msg: Message } | null>(null);
+    const [mentionMenu, setMentionMenu] = useState<{ x: number; y: number; user: User } | null>(null);
     
     // AI Features State
     const [summary, setSummary] = useState<string | null>(null);
@@ -441,6 +451,16 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                     isFirstInGroup={item.isFirstInGroup}
                                     isLastInGroup={item.isLastInGroup}
                                     onVotePoll={onVotePoll}
+                                    onMentionClick={(user, event) => {
+                                        const target = event.currentTarget as HTMLElement;
+                                        const rect = target.getBoundingClientRect();
+                                        setMentionMenu({
+                                            user,
+                                            x: rect.left + rect.width / 2,
+                                            y: rect.bottom + window.scrollY,
+                                        });
+                                    }}
+                                    currentUserId={currentUserId}
                                 />
                             </div>
                         );
@@ -498,6 +518,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                     onOpenPoll={() => setIsPollModalOpen(true)}
                     conversationId={conversation.id !== 'gemini-chat' ? conversation.id : undefined}
                     currentUserId={currentUserId}
+                    participants={conversation.participants}
                     onGenerateImage={async (p) => {
                         setIsGeneratingImage(true);
                         const url = await generateImage(p);
@@ -588,6 +609,63 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                     onReact={onAddReaction}
                     onTranslate={() => handleTranslate(contextMenu.msg)}
                 />
+            )}
+
+            {/* Mention action popup */}
+            {mentionMenu && (
+                <div
+                    className="fixed inset-0 z-[1200]"
+                    onClick={() => setMentionMenu(null)}
+                >
+                    <div
+                        className="absolute bg-white rounded-2xl shadow-2xl border border-slate-200 w-64 py-2 animate-in fade-in slide-in-from-bottom-2 duration-200"
+                        style={{
+                            top: mentionMenu.y + 8,
+                            left: Math.max(12, mentionMenu.x - 128),
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="px-3 pb-2 border-b border-slate-100">
+                            <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-0.5">
+                                Mentioned contact
+                            </p>
+                            <p className="text-sm font-bold text-slate-800 truncate">
+                                {mentionMenu.user.name || mentionMenu.user.username}
+                            </p>
+                        </div>
+                        <button
+                            className="w-full text-left px-3 py-2 text-[13px] font-semibold text-slate-700 hover:bg-slate-50"
+                            onClick={() => {
+                                setMentionMenu(null);
+                                if (onStartPrivateConversation) {
+                                    onStartPrivateConversation(mentionMenu.user);
+                                } else {
+                                    console.log('Start private conversation with', mentionMenu.user);
+                                }
+                            }}
+                        >
+                            Message privately
+                        </button>
+                        <button
+                            className="w-full text-left px-3 py-2 text-[13px] font-semibold text-slate-700 hover:bg-slate-50"
+                            onClick={() => {
+                                setMentionMenu(null);
+                                alert('Voice calls are coming soon.');
+                            }}
+                        >
+                            Voice call
+                        </button>
+                        <button
+                            className="w-full text-left px-3 py-2 text-[13px] font-semibold text-slate-700 hover:bg-slate-50"
+                            onClick={() => {
+                                setMentionMenu(null);
+                                alert('Video calls are coming soon.');
+                            }}
+                        >
+                            Video call
+                        </button>
+                    </div>
+                </div>
             )}
         </div>
     );

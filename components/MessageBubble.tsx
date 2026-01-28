@@ -13,6 +13,8 @@ interface MessageBubbleProps {
     isLastInGroup?: boolean;
     onVotePoll?: (messageId: string, optionIndex: number) => void;
     onScrollToMessage?: (id: string) => void;
+    currentUserId?: string;
+    onMentionClick?: (user: User, event: React.MouseEvent) => void;
 }
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({ 
@@ -25,7 +27,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     isFirstInGroup,
     isLastInGroup,
     onVotePoll,
-    onScrollToMessage
+    onScrollToMessage,
+    currentUserId,
+    onMentionClick
 }) => {
     const [offsetX, setOffsetX] = useState(0);
     const [isSwiping, setIsSwiping] = useState(false);
@@ -35,6 +39,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     const time = new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
     const isSystem = message.isSystem || message.senderId === 'system';
+    const isMentioned = !!currentUserId && message.mentions?.includes(currentUserId) && !isOwnMessage;
 
     const handleStart = (clientX: number) => {
         startXRef.current = clientX;
@@ -54,13 +59,59 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     };
 
     const renderContent = (text: string) => {
+        // First split out markdown links so we don't style inside URLs
         const parts = text.split(/(\[.*?\]\(.*?\))/g);
         return parts.map((part, i) => {
-            const match = part.match(/\[(.*?)\]\((.*?)\)/);
-            if (match) {
-                return <a key={i} href={match[2]} target="_blank" rel="noopener noreferrer" className="underline font-bold break-all">{match[1]}</a>;
+            const linkMatch = part.match(/\[(.*?)\]\((.*?)\)/);
+            if (linkMatch) {
+                return (
+                    <a
+                        key={`link-${i}`}
+                        href={linkMatch[2]}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline font-bold break-all"
+                    >
+                        {linkMatch[1]}
+                    </a>
+                );
             }
-            return part;
+
+            // For normal text segments, highlight @handles and make them clickable
+            const mentionSegments = part.split(/(@[a-zA-Z0-9_]+)/g);
+            return mentionSegments.map((seg, j) => {
+                if (seg.startsWith('@') && seg.length > 1) {
+                    const handle = seg.slice(1).toLowerCase();
+                    const matchedUser =
+                        participants.find((u) => {
+                            const username = (u.username || '').replace(/^@/, '').toLowerCase();
+                            const firstName = (u.name || '').split(' ')[0].toLowerCase();
+                            return username === handle || firstName === handle;
+                        }) ||
+                        // Fallback: first mentioned participant if text match fails
+                        participants.find((u) => message.mentions?.includes(u.id));
+
+                    return (
+                        <span
+                            key={`mention-${i}-${j}`}
+                            className={`text-sky-400 font-semibold ${
+                                matchedUser && onMentionClick ? 'cursor-pointer hover:underline' : ''
+                            }`}
+                            onClick={
+                                matchedUser && onMentionClick
+                                    ? (e) => {
+                                          e.stopPropagation();
+                                          onMentionClick(matchedUser, e);
+                                      }
+                                    : undefined
+                            }
+                        >
+                            {seg}
+                        </span>
+                    );
+                }
+                return <React.Fragment key={`text-${i}-${j}`}>{seg}</React.Fragment>;
+            });
         });
     };
 
@@ -80,8 +131,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         : isSystem
             ? 'bg-slate-100/90 text-slate-600 rounded-xl px-3 py-1.5 border border-slate-200 shadow-none text-[11px] leading-snug'
             : isOwnMessage
-                ? `bg-green-600 text-white ${radiusClasses}`
-                : `bg-white text-slate-800 ${radiusClasses} border border-slate-100`;
+        ? `bg-green-600 text-white ${radiusClasses}`
+                : `bg-white text-slate-800 ${radiusClasses} border ${
+                    isMentioned ? 'border-green-400 shadow-md shadow-green-100' : 'border-slate-100'
+                  }`;
 
     // Calculate total votes for the poll
     const totalVotes = message.poll?.options.reduce((acc, opt) => acc + opt.votes, 0) || 0;
@@ -265,6 +318,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
                     <div className={`flex items-center justify-end ${isSticker ? 'px-0 pb-1 -mt-1' : 'px-3 pb-1.5 -mt-2'} space-x-1 shrink-0 ${isSticker ? 'text-slate-500' : (isOwnMessage ? 'text-white/70' : 'text-slate-400')}`}>
                         {message.isStarred && <StarIcon className={`h-2.5 w-2.5 sm:h-3 sm:w-3 shrink-0 ${isSticker ? 'text-yellow-400' : (isOwnMessage ? 'text-white/60' : 'text-yellow-400')}`} />}
+                        {isMentioned && (
+                            <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-widest text-green-600 mr-1">
+                                Mentioned you
+                            </span>
+                        )}
                         <span className="text-[8px] sm:text-[9px] font-black uppercase shrink-0">{time}</span>
                         {isOwnMessage && (
                             <div className="flex items-center shrink-0 space-x-0.5">

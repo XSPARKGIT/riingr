@@ -38,12 +38,17 @@ import {
     removeAdminRights,
     muteConversation,
     unmuteConversation,
-    getMutedConversations
+    getMutedConversations,
+    getMediaMessages,
+    getFileMessages,
+    getPinnedMessages,
+    getConversationNotificationPreferences,
+    setConversationNotificationLevel
 } from './services/firestoreService';
 import { sendMessage as syncSendMessage, startBackgroundSync, stopBackgroundSync, syncAllFromFirestore, subscribeToMessages } from './services/syncService';
 import { initConnectionListener } from './services/connectionService';
 import { getConversationsLocally, getMessagesLocally, getSyncQueueCount, clearAllLocalData } from './services/localStorageService';
-import type { Conversation, Message, User, PollOption, MutedConversation } from './types';
+import type { Conversation, Message, User, PollOption, MutedConversation, ConversationPreference, ConversationNotificationLevel } from './types';
 import { INITIAL_CONVERSATIONS, MessengerIcon } from './constants';
 import { meAvatar } from './assets';
 
@@ -66,6 +71,10 @@ const App: React.FC = () => {
     const [isProfileLoading, setIsProfileLoading] = useState<boolean>(false);
     const [mutedConversations, setMutedConversations] = useState<Map<string, number | null>>(new Map());
     const [isGroupSettingsOpen, setIsGroupSettingsOpen] = useState(false);
+    const [groupMediaMessages, setGroupMediaMessages] = useState<Message[]>([]);
+    const [groupFileMessages, setGroupFileMessages] = useState<Message[]>([]);
+    const [groupPinnedMessages, setGroupPinnedMessages] = useState<Message[]>([]);
+    const [conversationPreferences, setConversationPreferences] = useState<ConversationPreference[]>([]);
     const prevSyncQueueCountRef = useRef<number>(0);
     const selectedConversationIdRef = useRef<string | null>(selectedConversationId);
     
@@ -96,6 +105,20 @@ const App: React.FC = () => {
         };
         loadContacts();
     }, [isAuthenticated, currentUser?.id]);
+
+    // Load per-conversation notification preferences for current user
+    useEffect(() => {
+        const loadPreferences = async () => {
+            if (!currentUser?.id || currentUser.id === 'me') return;
+            try {
+                const prefs = await getConversationNotificationPreferences(currentUser.id);
+                setConversationPreferences(prefs);
+            } catch (error) {
+                console.error('Error loading conversation notification preferences:', error);
+            }
+        };
+        loadPreferences();
+    }, [currentUser?.id]);
 
     // Load user profile after authentication to check onboarding status
     useEffect(() => {
@@ -329,6 +352,8 @@ const App: React.FC = () => {
         return Array.from(userMap.values());
     }, [conversations, contacts, currentUser?.id]);
 
+    const selectedConversation = conversations.find(c => c.id === selectedConversationId);
+
     const handleLogin = (email: string, userId: string) => {
         // Extract name from email (or you can fetch from Firebase later)
         const emailName = email.split('@')[0];
@@ -393,7 +418,8 @@ const App: React.FC = () => {
         imageUrl?: string, 
         location?: Message['location'], 
         poll?: Message['poll'],
-        file?: Message['file']
+        file?: Message['file'],
+        mentions?: string[]
     ) => {
         if (!selectedConversationId || !currentUser?.id) return;
 
@@ -410,7 +436,8 @@ const App: React.FC = () => {
             replyToId: replyingTo?.id,
             status: 'sent',
             reactions: [],
-            syncStatus: 'pending'
+            syncStatus: 'pending',
+            mentions: mentions && mentions.length > 0 ? mentions : []
         };
 
         // Update UI optimistically - sort messages to maintain chronological order
@@ -671,6 +698,15 @@ const App: React.FC = () => {
 
         const authUserId = firebaseUser.uid;
 
+        // Prevent attempting to start a DM with yourself
+        if (user.id === authUserId) {
+            console.warn('Ignoring attempt to start conversation with self from mention popup.', {
+                authUserId,
+                contactId: user.id,
+            });
+            return;
+        }
+
         // Verify currentUser.id matches auth UID (for debugging)
         if (currentUser?.id && currentUser.id !== 'me' && currentUser.id !== authUserId) {
             console.warn('⚠️ User ID mismatch:', { 
@@ -857,6 +893,27 @@ const App: React.FC = () => {
         loadMutedConversations();
     }, [currentUser?.id]);
 
+    // Load group media/files/pinned when group settings opened
+    useEffect(() => {
+        const loadGroupContent = async () => {
+            if (!isGroupSettingsOpen || !selectedConversation) return;
+            if (selectedConversation.type !== 'group') return;
+            try {
+                const [media, files, pinned] = await Promise.all([
+                    getMediaMessages(selectedConversation.id),
+                    getFileMessages(selectedConversation.id),
+                    getPinnedMessages(selectedConversation.id)
+                ]);
+                setGroupMediaMessages(media);
+                setGroupFileMessages(files);
+                setGroupPinnedMessages(pinned);
+            } catch (error) {
+                console.error('Error loading group media/files/pinned messages:', error);
+            }
+        };
+        loadGroupContent();
+    }, [isGroupSettingsOpen, selectedConversation]);
+
     // Group management handlers
     const handleUpdateGroup = async (groupId: string, updates: Partial<Conversation>) => {
         const firebaseUser = getCurrentUser();
@@ -918,6 +975,20 @@ const App: React.FC = () => {
         });
     };
 
+    const handleSetNotificationLevel = async (
+        conversationId: string,
+        level: ConversationNotificationLevel
+    ) => {
+        const firebaseUser = getCurrentUser();
+        if (!firebaseUser) throw new Error('User not authenticated');
+        await setConversationNotificationLevel(firebaseUser.uid, conversationId, level);
+        setConversationPreferences(prev => {
+            const filtered = prev.filter(p => p.conversationId !== conversationId);
+            filtered.push({ conversationId, notificationLevel: level });
+            return filtered;
+        });
+    };
+
     const handleSelectSettings = (category: string | null) => {
         if (category === 'support-popup') {
             setIsSupportPopupOpen(true);
@@ -927,7 +998,6 @@ const App: React.FC = () => {
         if (category) setSelectedConversationId(null);
     };
 
-    const selectedConversation = conversations.find(c => c.id === selectedConversationId);
     const showChat = selectedConversationId !== null;
     const showSettingsDetail = settingsCategory !== null;
 
@@ -1049,6 +1119,16 @@ const App: React.FC = () => {
                             }}
                             availableUsers={allUniqueUsers}
                             mutedUntil={mutedConversations.get(selectedConversation.id)}
+                            mediaMessages={groupMediaMessages}
+                            fileMessages={groupFileMessages}
+                            pinnedMessages={groupPinnedMessages}
+                            notificationLevel={
+                                conversationPreferences.find(p => p.conversationId === selectedConversation.id)
+                                    ?.notificationLevel || 'all'
+                            }
+                            onChangeNotificationLevel={async (level) => {
+                                await handleSetNotificationLevel(selectedConversation.id, level);
+                            }}
                         />
                     ) : selectedConversation ? (
                         <ChatWindow 
@@ -1073,6 +1153,7 @@ const App: React.FC = () => {
                                 if (mutedUntil === -1) return true;
                                 return mutedUntil > Date.now();
                             })()}
+                            onStartPrivateConversation={handleSelectContact}
                         />
                     ) : showSettingsDetail ? (
                         <div className="flex-1 flex flex-col bg-slate-50 min-h-0">

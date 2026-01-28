@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import type { Conversation, User } from '../types';
+import type { Conversation, User, Message, ConversationNotificationLevel } from '../types';
 import { ArrowLeftIcon, UsersIcon, TrashIcon } from '../constants';
 import { AddMemberModal } from './AddMemberModal';
 import { RemoveMemberModal } from './RemoveMemberModal';
 import { GroupAvatarPicker } from './GroupAvatarPicker';
 import { EditDescriptionModal } from './EditDescriptionModal';
 import { MuteOptionsModal } from './MuteOptionsModal';
+import { approvePendingMember, rejectPendingMember, blockUser, reportUser } from '../services/firestoreService';
 
 interface GroupSettingsViewProps {
   conversation: Conversation;
@@ -21,6 +22,11 @@ interface GroupSettingsViewProps {
   onUnmuteGroup: () => Promise<void>;
   availableUsers: User[];
   mutedUntil?: number | null;
+  mediaMessages: Message[];
+  fileMessages: Message[];
+  pinnedMessages: Message[];
+  notificationLevel: ConversationNotificationLevel;
+  onChangeNotificationLevel: (level: ConversationNotificationLevel) => Promise<void>;
 }
 
 type Tab = 'Media' | 'Files' | 'Links' | 'Voice' | 'GIFs';
@@ -39,6 +45,11 @@ export const GroupSettingsView: React.FC<GroupSettingsViewProps> = ({
   onUnmuteGroup,
   availableUsers,
   mutedUntil,
+  mediaMessages,
+  fileMessages,
+  pinnedMessages,
+  notificationLevel,
+  onChangeNotificationLevel,
 }) => {
   const [activeTab, setActiveTab] = useState<Tab>('Media');
   const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
@@ -95,6 +106,31 @@ export const GroupSettingsView: React.FC<GroupSettingsViewProps> = ({
 
   const tabs: Tab[] = ['Media', 'Files', 'Links', 'Voice', 'GIFs'];
 
+  const renderNotificationLevelLabel = (level: ConversationNotificationLevel) => {
+    switch (level) {
+      case 'mentions':
+        return 'Mentions only';
+      case 'none':
+        return 'None';
+      case 'all':
+      default:
+        return 'All messages';
+    }
+  };
+
+  const handleNotificationChange = async (level: ConversationNotificationLevel) => {
+    if (level === notificationLevel) return;
+    await onChangeNotificationLevel(level);
+  };
+
+  const activeMedia = mediaMessages || [];
+  const activeFiles = fileMessages || [];
+
+  const pendingMemberIds = conversation.pendingMemberIds || [];
+  const pendingMembers: User[] = pendingMemberIds
+    .map((id) => availableUsers.find((u) => u.id === id))
+    .filter((u): u is User => !!u);
+
   return (
     <div className="h-full flex flex-col bg-slate-50 text-slate-800 animate-in slide-in-from-right duration-300 z-50">
       {/* Header */}
@@ -139,6 +175,81 @@ export const GroupSettingsView: React.FC<GroupSettingsViewProps> = ({
               </div>
             )}
           </div>
+
+          {/* Pending Members */}
+          {pendingMembers.length > 0 && (
+            <div className="mt-4 bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
+                  Pending members ({pendingMembers.length})
+                </h3>
+              </div>
+              <div className="space-y-3">
+                {pendingMembers.map((member) => (
+                  <div
+                    key={member.id}
+                    className="flex items-center justify-between p-2 rounded-2xl bg-slate-50 border border-slate-100"
+                  >
+                    <div className="flex items-center min-w-0">
+                      <img
+                        src={
+                          member.avatar === 'gemini'
+                            ? 'https://aistudiocdn.com/logo/gemini-sparkle.png'
+                            : member.avatar
+                        }
+                        className="h-9 w-9 rounded-full mr-3 border-2 border-slate-100 shrink-0"
+                        alt={member.name}
+                      />
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-[14px] font-bold text-slate-800 truncate">
+                          {member.name || member.username || 'Pending member'}
+                        </span>
+                        <span className="text-[11px] font-bold text-slate-400 truncate">
+                          {member.username || member.email || member.id}
+                        </span>
+                      </div>
+                    </div>
+                    {isAdmin && (
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={async () => {
+                            try {
+                              await approvePendingMember(conversation.id, member.id, currentUserId);
+                              alert('Member approved');
+                            } catch (error) {
+                              console.error('Error approving member:', error);
+                              alert('Could not approve member. Please try again.');
+                            }
+                          }}
+                          className="px-3 py-1.5 rounded-full bg-green-600 text-white text-[11px] font-black uppercase tracking-widest hover:bg-green-700 transition-colors"
+                        >
+                          Approve
+                        </button>
+                        <button
+                          onClick={async () => {
+                            const confirmed = window.confirm(
+                              `Reject join request from ${member.name || member.username || 'this user'}?`
+                            );
+                            if (!confirmed) return;
+                            try {
+                              await rejectPendingMember(conversation.id, member.id, currentUserId);
+                              alert('Member rejected');
+                            } catch (error) {
+                              console.error('Error rejecting member:', error);
+                              alert('Could not reject member. Please try again.');
+                            }
+                          }}
+                          className="px-3 py-1.5 rounded-full bg-slate-100 text-[11px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-200 transition-colors"
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {isEditingName && isAdmin ? (
             <div className="flex items-center gap-2">
@@ -281,6 +392,49 @@ export const GroupSettingsView: React.FC<GroupSettingsViewProps> = ({
                               <TrashIcon className="h-4 w-4" />
                             </button>
                           )}
+                          {participant.id !== currentUserId && (
+                            <div className="flex flex-col gap-1 ml-1">
+                              <button
+                                onClick={async () => {
+                                  const confirmed = window.confirm(
+                                    `Block ${participant.name || participant.username || 'this user'}? You won't receive messages from them.`
+                                  );
+                                  if (!confirmed) return;
+                                  try {
+                                    await blockUser(currentUserId, participant.id);
+                                    alert('User blocked');
+                                  } catch (error) {
+                                    console.error('Error blocking user:', error);
+                                    alert('Could not block user. Please try again.');
+                                  }
+                                }}
+                                className="text-[10px] font-bold text-slate-400 hover:text-red-500 hover:bg-red-50 px-2 py-0.5 rounded-full transition-colors"
+                              >
+                                Block
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  const reason = window.prompt(
+                                    `Report ${participant.name || participant.username || 'this user'}?\n\nDescribe the issue:`
+                                  );
+                                  if (!reason) return;
+                                  try {
+                                    await reportUser(currentUserId, participant.id, {
+                                      conversationId: conversation.id,
+                                      reason,
+                                    });
+                                    alert('Report submitted');
+                                  } catch (error) {
+                                    console.error('Error reporting user:', error);
+                                    alert('Could not submit report. Please try again.');
+                                  }
+                                }}
+                                className="text-[10px] font-bold text-slate-400 hover:text-amber-600 hover:bg-amber-50 px-2 py-0.5 rounded-full transition-colors"
+                              >
+                                Report
+                              </button>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -293,6 +447,33 @@ export const GroupSettingsView: React.FC<GroupSettingsViewProps> = ({
           {/* Group Actions */}
           <div className="mt-4 bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
             <div className="space-y-4">
+              {/* Notification preferences */}
+              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
+                <div className="flex flex-col">
+                  <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
+                    Notifications
+                  </span>
+                  <span className="text-[13px] font-bold text-slate-800">
+                    {renderNotificationLevelLabel(notificationLevel)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  {(['all', 'mentions', 'none'] as ConversationNotificationLevel[]).map((level) => (
+                    <button
+                      key={level}
+                      onClick={() => handleNotificationChange(level)}
+                      className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all ${
+                        notificationLevel === level
+                          ? 'bg-green-600 text-white border-green-600 shadow-sm'
+                          : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400'
+                      }`}
+                    >
+                      {level === 'all' ? 'All' : level === 'mentions' ? '@ Mentions' : 'None'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <button
                 onClick={() => setIsMuteModalOpen(true)}
                 className="w-full flex items-center justify-between p-3 hover:bg-slate-50 rounded-xl transition-colors"
@@ -309,6 +490,35 @@ export const GroupSettingsView: React.FC<GroupSettingsViewProps> = ({
                   <span className="text-xs text-yellow-600 font-semibold">Muted</span>
                 )}
               </button>
+
+              {/* Simple theme controls */}
+              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
+                <div className="flex flex-col">
+                  <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
+                    Theme
+                  </span>
+                  <span className="text-[13px] font-bold text-slate-800">
+                    Accent & background
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  {['#16a34a', '#0ea5e9', '#e11d48'].map((color) => (
+                    <button
+                      key={color}
+                      onClick={() =>
+                        onUpdate({
+                          theme: {
+                            ...(conversation.theme || {}),
+                            accentColor: color,
+                          },
+                        })
+                      }
+                      className="h-6 w-6 rounded-full border border-white shadow-sm hover:ring-2 hover:ring-slate-200 transition-all"
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
+                </div>
+              </div>
 
               <button
                 onClick={onLeaveGroup}
@@ -342,18 +552,68 @@ export const GroupSettingsView: React.FC<GroupSettingsViewProps> = ({
           </div>
 
           {/* Content Grid */}
-          <div className="p-0.5 grid grid-cols-3 gap-0.5 min-h-[300px] bg-slate-50">
-            {[1,2,3,4,5,6,7,8,9,10,11,12].map(i => (
-              <div key={i} className="aspect-square bg-slate-200 overflow-hidden relative group cursor-pointer border border-white/10">
-                <img 
-                  src={`https://picsum.photos/seed/${conversation.id}-${i}/300/300`} 
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 opacity-90 group-hover:opacity-100" 
-                  alt="Shared media content" 
-                  loading="lazy"
-                />
-                <div className="absolute inset-0 bg-green-900/0 group-hover:bg-green-900/10 transition-colors" />
+          <div className="min-h-[260px] bg-slate-50">
+            {activeTab === 'Media' && (
+              <div className="p-0.5 grid grid-cols-3 gap-0.5">
+                {activeMedia.length === 0 ? (
+                  <div className="col-span-3 flex items-center justify-center py-10 text-xs font-semibold text-slate-400">
+                    No media shared yet
+                  </div>
+                ) : (
+                  activeMedia.map((msg) => (
+                    <div
+                      key={msg.id}
+                      className="aspect-square bg-slate-200 overflow-hidden relative group cursor-pointer border border-white/10"
+                    >
+                      {msg.imageUrl && (
+                        <img
+                          src={msg.imageUrl}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 opacity-90 group-hover:opacity-100"
+                          alt="Shared media content"
+                          loading="lazy"
+                        />
+                      )}
+                      <div className="absolute inset-0 bg-green-900/0 group-hover:bg-green-900/10 transition-colors" />
+                    </div>
+                  ))
+                )}
               </div>
-            ))}
+            )}
+
+            {activeTab === 'Files' && (
+              <div className="p-3 space-y-2">
+                {activeFiles.length === 0 ? (
+                  <div className="flex items-center justify-center py-6 text-xs font-semibold text-slate-400">
+                    No files shared yet
+                  </div>
+                ) : (
+                  activeFiles.map((msg) => (
+                    <div
+                      key={msg.id}
+                      className="flex items-center justify-between px-3 py-2 rounded-2xl bg-white border border-slate-100 hover:bg-slate-50 transition-colors"
+                    >
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-[13px] font-bold text-slate-800 truncate">
+                          {msg.file?.name || 'File'}
+                        </span>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest truncate">
+                          {msg.file?.size} {msg.file?.type && `• ${msg.file.type}`}
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2 shrink-0">
+                        {new Date(msg.timestamp).toLocaleDateString()}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            {activeTab !== 'Media' && activeTab !== 'Files' && (
+              <div className="flex items-center justify-center py-10 text-xs font-semibold text-slate-400">
+                {activeTab} view coming soon
+              </div>
+            )}
           </div>
         </div>
       </div>
