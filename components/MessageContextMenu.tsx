@@ -78,8 +78,12 @@ export const MessageContextMenu: React.FC<ContextMenuProps> = ({
     }, [onClose]);
 
     const handleAction = (action: () => void) => {
-        action();
+        // Close menu first to prevent UI blocking
         onClose();
+        // Defer action to next tick to prevent blocking
+        setTimeout(() => {
+            action();
+        }, 0);
     };
 
     return (

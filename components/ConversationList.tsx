@@ -29,6 +29,7 @@ interface ConversationListProps {
     onMute?: (conversationId: string, mutedUntil: number | null) => Promise<void>;
     onUnmute?: (conversationId: string) => Promise<void>;
     onOpenGroupSettings?: (conversationId: string) => void;
+    onJoinByInvite?: (token: string) => Promise<void>;
 }
 
 type NavSection = 'contacts' | 'calls' | 'chats' | 'settings';
@@ -52,7 +53,8 @@ export const ConversationList: React.FC<ConversationListProps> = ({
     mutedConversations = new Map(),
     onMute,
     onUnmute,
-    onOpenGroupSettings
+    onOpenGroupSettings,
+    onJoinByInvite
 }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [activeSection, setActiveSection] = useState<NavSection>('chats');
@@ -162,6 +164,28 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                                             label="New Channel" 
                                             onClick={() => setIsNewChatMenuOpen(false)} 
                                         />
+                                        {onJoinByInvite && (
+                                            <NewChatMenuItem 
+                                                icon={<MegaphoneIcon className="h-5 w-5" />} 
+                                                label="Join Group via Invite Link" 
+                                                onClick={async () => {
+                                                    setIsNewChatMenuOpen(false);
+                                                    const input = window.prompt('Paste the invite link or token:');
+                                                    if (!input) return;
+                                                    try {
+                                                        const url = new URL(input, window.location.origin);
+                                                        const tokenFromQuery = url.searchParams.get('invite');
+                                                        const token = tokenFromQuery || input.trim();
+                                                        if (!token) return;
+                                                        await onJoinByInvite(token);
+                                                    } catch {
+                                                        const token = input.trim();
+                                                        if (!token) return;
+                                                        await onJoinByInvite(token);
+                                                    }
+                                                }} 
+                                            />
+                                        )}
                                     </div>
                                 )}
                             </div>

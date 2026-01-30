@@ -6,7 +6,7 @@ import { RemoveMemberModal } from './RemoveMemberModal';
 import { GroupAvatarPicker } from './GroupAvatarPicker';
 import { EditDescriptionModal } from './EditDescriptionModal';
 import { MuteOptionsModal } from './MuteOptionsModal';
-import { approvePendingMember, rejectPendingMember, blockUser, reportUser } from '../services/firestoreService';
+import { approvePendingMember, rejectPendingMember, blockUser, reportUser, createGroupInviteLink } from '../services/firestoreService';
 
 interface GroupSettingsViewProps {
   conversation: Conversation;
@@ -60,6 +60,8 @@ export const GroupSettingsView: React.FC<GroupSettingsViewProps> = ({
   const [memberToRemove, setMemberToRemove] = useState<User | null>(null);
   const [isEditingName, setIsEditingName] = useState(false);
   const [editName, setEditName] = useState(conversation.name || '');
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [isGeneratingInvite, setIsGeneratingInvite] = useState(false);
 
   const isAdmin = conversation.admins?.includes(currentUserId);
   const isMuted = mutedUntil !== undefined && mutedUntil !== null && (mutedUntil === -1 || mutedUntil > Date.now());
@@ -130,6 +132,28 @@ export const GroupSettingsView: React.FC<GroupSettingsViewProps> = ({
   const pendingMembers: User[] = pendingMemberIds
     .map((id) => availableUsers.find((u) => u.id === id))
     .filter((u): u is User => !!u);
+
+  const handleCreateInviteLink = async () => {
+    if (!isAdmin) return;
+    try {
+      setIsGeneratingInvite(true);
+      const token = await createGroupInviteLink(conversation.id);
+      const base = typeof window !== 'undefined' ? window.location.origin : '';
+      const url = `${base}/?invite=${encodeURIComponent(token)}`;
+      setInviteLink(url);
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(url);
+        alert('Invite link created and copied to clipboard.');
+      } else {
+        window.prompt('Invite link (copy and share):', url);
+      }
+    } catch (error) {
+      console.error('Error creating invite link:', error);
+      alert('Could not create invite link. Please try again.');
+    } finally {
+      setIsGeneratingInvite(false);
+    }
+  };
 
   return (
     <div className="h-full flex flex-col bg-slate-50 text-slate-800 animate-in slide-in-from-right duration-300 z-50">
@@ -447,6 +471,32 @@ export const GroupSettingsView: React.FC<GroupSettingsViewProps> = ({
           {/* Group Actions */}
           <div className="mt-4 bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
             <div className="space-y-4">
+              {/* Invite link */}
+              {isAdmin && (
+                <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
+                      Invite link
+                    </span>
+                    <span className="text-[13px] font-bold text-slate-800 truncate">
+                      {inviteLink ? 'Link ready to share' : 'Create a link to invite members'}
+                    </span>
+                    {inviteLink && (
+                      <span className="text-[10px] font-mono text-slate-400 truncate mt-0.5">
+                        {inviteLink}
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    onClick={handleCreateInviteLink}
+                    disabled={isGeneratingInvite}
+                    className="ml-3 px-3 py-1.5 rounded-full bg-green-600 text-white text-[11px] font-black uppercase tracking-widest hover:bg-green-700 disabled:opacity-60 disabled:cursor-wait transition-colors shrink-0"
+                  >
+                    {isGeneratingInvite ? 'Creating…' : inviteLink ? 'Copy Link' : 'Create Link'}
+                  </button>
+                </div>
+              )}
+
               {/* Notification preferences */}
               <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
                 <div className="flex flex-col">

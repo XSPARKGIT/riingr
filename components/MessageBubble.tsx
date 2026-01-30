@@ -17,7 +17,8 @@ interface MessageBubbleProps {
     onMentionClick?: (user: User, event: React.MouseEvent) => void;
 }
 
-export const MessageBubble: React.FC<MessageBubbleProps> = ({ 
+// Memoize MessageBubble to prevent unnecessary re-renders when replyingTo changes
+const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({ 
     message, 
     isOwnMessage, 
     onReply, 
@@ -152,7 +153,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         >
             <div 
                 className={`${
-                    isSystem ? 'max-w-[80%]' : 'max-w-[90%] sm:max-w-[75%]'
+                    isSystem ? 'max-w-[80%]' : 'max-w-[85%] sm:max-w-[75%]'
                 } min-w-0 relative ${!isSwiping ? 'transition-transform duration-300' : ''}`}
                 style={{ transform: `translateX(${offsetX}px)` }}
             >
@@ -164,17 +165,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     </div>
                 )}
 
-                <div className={`${isSticker ? '' : isSystem ? '' : 'shadow-sm'} flex flex-col relative min-w-0 ${bubbleClasses}`}>
-                    {replyToMessage && (
-                        <div 
-                            onClick={(e) => { e.stopPropagation(); onScrollToMessage?.(replyToMessage.id); }}
-                            className="mx-2 mt-2 bg-black/5 rounded-lg p-2 border-l-4 border-green-400 text-left cursor-pointer hover:bg-black/10 transition-colors min-w-0"
-                        >
-                            <p className="text-[10px] font-bold opacity-70 uppercase truncate">{participants.find(p => p.id === replyToMessage.senderId)?.name}</p>
-                            <p className="text-xs italic truncate opacity-80">{replyToMessage.text || 'Media'}</p>
-                        </div>
-                    )}
-                    
+                <div className={`${isSticker ? '' : isSystem ? '' : 'shadow-sm'} flex flex-col relative ${bubbleClasses}`}>
                     {/* Render Image */}
                     {message.imageUrl && (
                         isSticker ? (
@@ -188,10 +179,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                             </div>
                         ) : (
                             // GIFs and regular images: keep existing styling
-                            <div className="p-1 shrink-0">
+                            <div className="p-1 shrink-0 max-w-full overflow-hidden">
                                 <img 
                                     src={message.imageUrl} 
-                                    className="rounded-xl w-full max-h-80 object-cover" 
+                                    className="rounded-xl w-full max-w-full max-h-80 object-cover" 
                                     alt="Shared media" 
                                 />
                             </div>
@@ -297,8 +288,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
                     {/* Render Text */}
                     {message.text && (
-                        <div className="px-3 sm:px-4 py-2 sm:py-2.5 min-w-0">
-                            <p className="text-[14px] sm:text-[15px] leading-relaxed whitespace-pre-wrap break-words font-medium overflow-wrap-anywhere">
+                        <div className="px-3 sm:px-4 py-2 sm:py-2.5">
+                            <p className="text-[14px] sm:text-[15px] leading-relaxed whitespace-pre-wrap break-words font-medium">
                                 {renderContent(message.text)}
                             </p>
                             
@@ -360,3 +351,20 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         </div>
     );
 };
+
+// Memoize MessageBubble to prevent unnecessary re-renders when replyingTo changes in parent
+export const MessageBubble = React.memo(MessageBubbleComponent, (prevProps, nextProps) => {
+    // Custom comparison - only re-render if this specific message's props changed
+    // This prevents all messages from re-rendering when replyingTo state changes
+    return (
+        prevProps.message.id === nextProps.message.id &&
+        prevProps.message.text === nextProps.message.text &&
+        prevProps.message.imageUrl === nextProps.message.imageUrl &&
+        prevProps.message.reactions?.join(',') === nextProps.message.reactions?.join(',') &&
+        prevProps.isOwnMessage === nextProps.isOwnMessage &&
+        prevProps.replyToMessage?.id === nextProps.replyToMessage?.id &&
+        prevProps.isFirstInGroup === nextProps.isFirstInGroup &&
+        prevProps.isLastInGroup === nextProps.isLastInGroup &&
+        prevProps.currentUserId === nextProps.currentUserId
+    );
+});

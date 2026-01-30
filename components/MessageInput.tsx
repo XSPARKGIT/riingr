@@ -379,9 +379,9 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                     )}
                 </div>
 
-                <div className="flex-1 relative bg-slate-100 rounded-2xl px-3 sm:px-4 py-1 focus-within:ring-2 focus-within:ring-green-500 focus-within:bg-white transition-all overflow-visible">
+                <div className="flex-1 min-w-0 relative bg-slate-100 rounded-2xl px-3 sm:px-4 py-1 focus-within:ring-2 focus-within:ring-green-500 focus-within:bg-white transition-all overflow-visible">
                     {/* Highlighted text overlay */}
-                    <div className="absolute inset-x-3 sm:inset-x-4 top-2 bottom-2 pointer-events-none whitespace-pre-wrap break-words text-[14px] sm:text-[15px] text-slate-800 leading-relaxed">
+                    <div className="absolute inset-x-3 sm:inset-x-4 top-2 bottom-2 pointer-events-none whitespace-pre-wrap break-words text-[14px] sm:text-[15px] text-slate-800 leading-relaxed" style={{ wordBreak: 'break-word', maxWidth: 'calc(100% - 1.5rem)' }}>
                         {renderHighlightedText(text)}
                     </div>
 
@@ -424,6 +424,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                         }}
                         placeholder=""
                         className="relative w-full bg-transparent border-none py-2 text-[14px] sm:text-[15px] focus:outline-none resize-none max-h-32 text-transparent caret-slate-800 disabled:opacity-50"
+                        style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}
                         disabled={isLoading || isGenerating}
                     />
 

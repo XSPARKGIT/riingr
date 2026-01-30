@@ -43,7 +43,8 @@ import {
     getFileMessages,
     getPinnedMessages,
     getConversationNotificationPreferences,
-    setConversationNotificationLevel
+    setConversationNotificationLevel,
+    requestJoinGroupByInvite
 } from './services/firestoreService';
 import { sendMessage as syncSendMessage, startBackgroundSync, stopBackgroundSync, syncAllFromFirestore, subscribeToMessages } from './services/syncService';
 import { initConnectionListener } from './services/connectionService';
@@ -875,6 +876,22 @@ const App: React.FC = () => {
         }
     };
 
+    const handleJoinGroupByInvite = async (token: string) => {
+        const firebaseUser = getCurrentUser();
+        if (!firebaseUser) {
+            alert('You must be logged in to join a group.');
+            return;
+        }
+        try {
+            await requestJoinGroupByInvite(token, firebaseUser.uid);
+            alert('Join request sent. A group admin will need to approve you.');
+        } catch (error: any) {
+            console.error('Error joining group by invite:', error);
+            const message = error?.message || 'Could not join group. Please check the link and try again.';
+            alert(message);
+        }
+    };
+
     // Load muted conversations
     useEffect(() => {
         const loadMutedConversations = async () => {
@@ -1083,6 +1100,7 @@ const App: React.FC = () => {
                          setSelectedConversationId(conversationId);
                          setIsGroupSettingsOpen(true);
                      }}
+                     onJoinByInvite={handleJoinGroupByInvite}
                    />
                 </div>
                 

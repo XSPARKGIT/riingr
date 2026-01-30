@@ -63,8 +63,7 @@ sudo xattr -r -d com.apple.quarantine "/Applications/Riingr.app"
 Then re-check + run:
 
 ```bash
-spctl --assess --type exec --verbose "/Applications/Riingr.app"
-open "/Applications/Riingr.app"
+
 ```
 
 ## Best practices to avoid this next time
