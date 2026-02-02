@@ -81,6 +81,32 @@ export const ConversationList: React.FC<ConversationListProps> = ({
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
+    // Helper function to calculate unread count for a conversation
+    const getUnreadCount = (conversation: Conversation, userId?: string): number => {
+        if (!userId) return 0;
+        return conversation.messages.filter(message => {
+            // Only count messages from other users
+            if (message.senderId === userId || message.senderId === 'me') return false;
+            // Count if message is not in readBy array
+            const readBy = message.readBy || [];
+            return !readBy.includes(userId);
+        }).length;
+    };
+
+    // Calculate unread counts for all conversations
+    const unreadCounts = useMemo(() => {
+        const counts = new Map<string, number>();
+        conversations.forEach(convo => {
+            counts.set(convo.id, getUnreadCount(convo, currentUserId));
+        });
+        return counts;
+    }, [conversations, currentUserId]);
+
+    // Calculate total unread conversations for nav badge
+    const totalUnreadConversations = useMemo(() => {
+        return Array.from(unreadCounts.values()).filter(count => count > 0).length;
+    }, [unreadCounts]);
+
     const sortedConversations = useMemo(() => {
         return [...conversations].sort((a, b) => {
             if (a.isPinned && !b.isPinned) return -1;
@@ -230,6 +256,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                                             if (mutedUntil === -1) return true; // Forever
                                             return mutedUntil > Date.now(); // Check if still muted
                                         })()}
+                                        unreadCount={unreadCounts.get(convo.id) || 0}
                                     />
                                 ))}
                                 {isSyncing && (
@@ -286,7 +313,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
             <div className="flex-shrink-0 h-[72px] bg-white border-t border-slate-100 flex items-center justify-around px-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
                 <NavButton active={activeSection === 'contacts'} onClick={() => handleNavClick('contacts')} icon={<UsersIcon className="h-6 w-6" />} />
                 <NavButton active={activeSection === 'calls'} onClick={() => handleNavClick('calls')} icon={<CallIcon className="h-6 w-6" />} />
-                <NavButton active={activeSection === 'chats'} onClick={() => handleNavClick('chats')} icon={<MessageIcon className="h-6 w-6" />} badge={9} />
+                <NavButton active={activeSection === 'chats'} onClick={() => handleNavClick('chats')} icon={<MessageIcon className="h-6 w-6" />} badge={totalUnreadConversations > 0 ? totalUnreadConversations : undefined} />
                 <NavButton active={activeSection === 'settings'} onClick={() => handleNavClick('settings')} icon={<SettingsIcon className="h-6 w-6" />} />
             </div>
 

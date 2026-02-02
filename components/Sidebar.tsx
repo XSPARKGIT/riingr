@@ -53,8 +53,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
     // Get unread count for a conversation
     const getUnreadCount = (conversation: Conversation): number => {
-        // You can implement unread count logic here
-        return 0;
+        if (!currentUserId) return 0;
+        return conversation.messages.filter(message => {
+            // Only count messages from other users
+            if (message.senderId === currentUserId || message.senderId === 'me') return false;
+            // Count if message is not in readBy array
+            const readBy = message.readBy || [];
+            return !readBy.includes(currentUserId);
+        }).length;
     };
 
     // Check if conversation is muted

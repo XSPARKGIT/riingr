@@ -10,6 +10,7 @@ interface ConversationListItemProps {
     onContextMenu: (e: React.MouseEvent, conversation: Conversation) => void;
     currentUserId?: string;
     isMuted?: boolean;
+    unreadCount?: number; // Number of unread messages
 }
 
 const Avatar: React.FC<{ user: User }> = ({ user }) => {
@@ -35,7 +36,7 @@ const Avatar: React.FC<{ user: User }> = ({ user }) => {
     );
 }
 
-export const ConversationListItem: React.FC<ConversationListItemProps> = ({ conversation, isSelected, onSelect, onContextMenu, currentUserId, isMuted = false }) => {
+export const ConversationListItem: React.FC<ConversationListItemProps> = ({ conversation, isSelected, onSelect, onContextMenu, currentUserId, isMuted = false, unreadCount = 0 }) => {
     const isGroup = conversation.type === 'group';
     
     // For groups, use group name. For DMs, find the other participant
@@ -102,17 +103,24 @@ export const ConversationListItem: React.FC<ConversationListItemProps> = ({ conv
                             </svg>
                         )}
                     </div>
-                    <div className="flex flex-col items-end">
+                    <div className="flex flex-col items-end gap-1">
                         <p className="text-xs text-slate-500">{time}</p>
+                        {unreadCount > 0 && (
+                            <span className="bg-green-600 text-white text-[10px] font-black w-5 h-5 flex items-center justify-center rounded-full min-w-[20px] px-1">
+                                {unreadCount > 99 ? '99+' : unreadCount}
+                            </span>
+                        )}
                     </div>
                 </div>
                 <div className="flex items-center justify-between">
-                    <p className="text-sm text-slate-500 truncate flex-1 mr-2">
+                    <p className={`text-sm truncate flex-1 mr-2 ${unreadCount > 0 ? 'text-slate-800 font-bold' : 'text-slate-500'}`}>
                         {lastMessage ? lastMessage.text : 'No messages yet'}
                     </p>
-                    {conversation.isPinned && (
-                        <PinIcon className="h-3 w-3 text-slate-400 -rotate-45" />
-                    )}
+                    <div className="flex items-center gap-1 shrink-0">
+                        {conversation.isPinned && (
+                            <PinIcon className="h-3 w-3 text-slate-400 -rotate-45" />
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

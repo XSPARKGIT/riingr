@@ -630,6 +630,31 @@ const App: React.FC = () => {
         }));
     }, [selectedConversationId]);
 
+    const handleMarkMessagesAsRead = useCallback((conversationId: string, userId: string) => {
+        // Optimistically update UI: add userId to readBy array for all unread messages
+        setConversations(prev => prev.map(convo => {
+            if (convo.id === conversationId) {
+                return {
+                    ...convo,
+                    messages: convo.messages.map(msg => {
+                        // Only mark messages from other users as read
+                        if (msg.senderId !== userId && msg.senderId !== 'me') {
+                            const readBy = msg.readBy || [];
+                            if (!readBy.includes(userId)) {
+                                return {
+                                    ...msg,
+                                    readBy: [...readBy, userId]
+                                };
+                            }
+                        }
+                        return msg;
+                    })
+                };
+            }
+            return convo;
+        }));
+    }, []);
+
     const handleDeleteMessage = useCallback(async (messageId: string) => {
         if (!selectedConversationId) return;
         
@@ -1397,6 +1422,7 @@ const App: React.FC = () => {
                             onAddReaction={handleAddReaction}
                             onUpdateMessage={handleUpdateMessage}
                             currentUserId={currentUser?.id}
+                            onMarkMessagesAsRead={handleMarkMessagesAsRead}
                             onOpenGroupSettings={selectedConversation.type === 'group' ? () => setIsGroupSettingsOpen(true) : undefined}
                             isMuted={(() => {
                                 const mutedUntil = mutedConversations.get(selectedConversation.id);

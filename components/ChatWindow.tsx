@@ -30,6 +30,7 @@ interface ChatWindowProps {
     onUpdateMessage?: (messageId: string, updates: Partial<Message>) => void;
     currentUserId?: string; // Add current user ID prop
     onStartPrivateConversation?: (user: User) => void;
+    onMarkMessagesAsRead?: (conversationId: string, userId: string) => void; // Callback to optimistically update UI
 }
 
 const ChatHeader: React.FC<{
@@ -180,6 +181,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     onAddReaction,
     onUpdateMessage,
     currentUserId,
+    onMarkMessagesAsRead,
     onOpenGroupSettings,
     isMuted = false,
     onStartPrivateConversation
@@ -282,6 +284,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             return;
         }
 
+        // Optimistically update UI immediately - mark all unread messages as read
+        if (onMarkMessagesAsRead) {
+            onMarkMessagesAsRead(conversation.id, currentUserId);
+        }
+
         // Mark all unread messages as read when conversation opens
         // Use a small delay to ensure conversation is fully loaded
         const timer = setTimeout(() => {
@@ -293,7 +300,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         return () => {
             clearTimeout(timer);
         };
-    }, [conversation.id, currentUserId, conversation.messages.length]);
+        // Only run when conversation ID or user ID changes, not on every message update
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [conversation.id, currentUserId]);
 
     const handleSummarize = async () => {
         if (conversation.messages.length < 3) return;
