@@ -27,9 +27,10 @@ interface GroupSettingsViewProps {
   pinnedMessages: Message[];
   notificationLevel: ConversationNotificationLevel;
   onChangeNotificationLevel: (level: ConversationNotificationLevel) => Promise<void>;
+  onScrollToMessage?: (messageId: string) => void; // Callback to scroll to message in chat
 }
 
-type Tab = 'Media' | 'Files' | 'Links' | 'Voice' | 'GIFs';
+type Tab = 'Media' | 'Files' | 'Pinned' | 'Links' | 'Voice' | 'GIFs';
 
 export const GroupSettingsView: React.FC<GroupSettingsViewProps> = ({
   conversation,
@@ -50,6 +51,7 @@ export const GroupSettingsView: React.FC<GroupSettingsViewProps> = ({
   pinnedMessages,
   notificationLevel,
   onChangeNotificationLevel,
+  onScrollToMessage,
 }) => {
   const [activeTab, setActiveTab] = useState<Tab>('Media');
   const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
@@ -106,7 +108,7 @@ export const GroupSettingsView: React.FC<GroupSettingsViewProps> = ({
     setIsMuteModalOpen(false);
   };
 
-  const tabs: Tab[] = ['Media', 'Files', 'Links', 'Voice', 'GIFs'];
+  const tabs: Tab[] = ['Media', 'Files', 'Pinned', 'Links', 'Voice', 'GIFs'];
 
   const renderNotificationLevelLabel = (level: ConversationNotificationLevel) => {
     switch (level) {
@@ -659,7 +661,77 @@ export const GroupSettingsView: React.FC<GroupSettingsViewProps> = ({
               </div>
             )}
 
-            {activeTab !== 'Media' && activeTab !== 'Files' && (
+            {activeTab === 'Pinned' && (
+              <div className="p-3 space-y-2">
+                {pinnedMessages.length === 0 ? (
+                  <div className="flex items-center justify-center py-6 text-xs font-semibold text-slate-400">
+                    No pinned messages yet
+                  </div>
+                ) : (
+                  pinnedMessages.map((msg) => {
+                    const sender = conversation.participants.find(p => p.id === msg.senderId);
+                    const senderName = sender?.name || sender?.username || 'Unknown';
+                    const isOwnMessage = msg.senderId === currentUserId || msg.senderId === 'me';
+                    
+                    return (
+                      <div
+                        key={msg.id}
+                        onClick={() => {
+                          // Close settings first
+                          onClose();
+                          // Then scroll to message if callback provided
+                          if (onScrollToMessage) {
+                            // Small delay to ensure settings is closed first
+                            setTimeout(() => {
+                              onScrollToMessage(msg.id);
+                            }, 100);
+                          } else {
+                            // Fallback: dispatch custom event
+                            window.dispatchEvent(new CustomEvent('scrollToMessage', { 
+                              detail: { messageId: msg.id, conversationId: conversation.id } 
+                            }));
+                          }
+                        }}
+                        className="flex items-start gap-3 px-3 py-3 rounded-2xl bg-white border border-slate-100 hover:bg-slate-50 hover:border-green-200 transition-all cursor-pointer group"
+                      >
+                        <div className="flex-shrink-0 mt-0.5">
+                          <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center">
+                            <svg className="h-4 w-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                            </svg>
+                          </div>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[12px] font-bold text-slate-800">
+                              {isOwnMessage ? 'You' : senderName}
+                            </span>
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest shrink-0 ml-2">
+                              {new Date(msg.timestamp).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <div className="text-[13px] text-slate-600 line-clamp-2">
+                            {msg.text ? (
+                              <span className="break-words">{msg.text}</span>
+                            ) : msg.imageUrl ? (
+                              <span className="italic text-slate-400">📷 Photo</span>
+                            ) : msg.file ? (
+                              <span className="italic text-slate-400">📎 {msg.file.name || 'File'}</span>
+                            ) : msg.poll ? (
+                              <span className="italic text-slate-400">📊 Poll</span>
+                            ) : (
+                              <span className="italic text-slate-400">Message</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            )}
+
+            {activeTab !== 'Media' && activeTab !== 'Files' && activeTab !== 'Pinned' && (
               <div className="flex items-center justify-center py-10 text-xs font-semibold text-slate-400">
                 {activeTab} view coming soon
               </div>

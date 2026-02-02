@@ -28,6 +28,7 @@ interface ContextMenuProps {
     onReact: (id: string, emoji: string) => void;
     onTranslate?: () => void; // New action
     currentUserId?: string; // Current user ID to check if message can be deleted
+    isGroup?: boolean; // Whether this is a group conversation
 }
 
 const quickEmojis = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
@@ -53,7 +54,7 @@ const allEmojis = [
 ];
 
 export const MessageContextMenu: React.FC<ContextMenuProps> = ({
-    x, y, message, onClose, onReply, onDelete, onCopy, onPin, onStar, onReport, currentUserId, onReact, onTranslate
+    x, y, message, onClose, onReply, onDelete, onCopy, onPin, onStar, onReport, currentUserId, isGroup = false, onReact, onTranslate
 }) => {
     const [view, setView] = useState<'main' | 'more' | 'emoji-picker'>('main');
     const menuRef = useRef<HTMLDivElement>(null);
@@ -107,6 +108,10 @@ export const MessageContextMenu: React.FC<ContextMenuProps> = ({
                     <div className="flex flex-col py-1.5">
                         <MenuButton icon={<ReplyIcon className="h-4 w-4" />} label="Reply" onClick={() => handleAction(() => onReply(message))} />
                         <MenuButton icon={<StarIcon className={`h-4 w-4 ${message.isStarred ? 'text-yellow-500' : ''}`} />} label={message.isStarred ? "Unstar" : "Star"} onClick={() => handleAction(() => onStar(message.id))} />
+                        {/* Show pin option in main menu for groups */}
+                        {isGroup && (
+                            <MenuButton icon={<PinIcon className={`h-4 w-4 ${message.isPinned ? 'text-green-600' : ''}`} />} label={message.isPinned ? "Unpin" : "Pin"} onClick={() => handleAction(() => onPin(message.id))} />
+                        )}
                         {message.text && (
                             <MenuButton 
                                 icon={<MessengerIcon className="h-4 w-4 text-green-500" />} 

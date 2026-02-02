@@ -678,6 +678,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                     onReact={onAddReaction}
                     onTranslate={() => handleTranslate(contextMenu.msg)}
                     currentUserId={currentUserId}
+                    isGroup={conversation.type === 'group'}
                 />
             )}
 

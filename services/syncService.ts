@@ -466,6 +466,8 @@ const processBatch = async (
             if (item.data.reactions !== undefined) updates.reactions = item.data.reactions;
             if (item.data.readBy !== undefined) updates.readBy = item.data.readBy;
             if (item.data.deliveredTo !== undefined) updates.deliveredTo = item.data.deliveredTo;
+            if (item.data.isPinned !== undefined) updates.isPinned = item.data.isPinned;
+            if (item.data.isStarred !== undefined) updates.isStarred = item.data.isStarred;
 
             const cleanedUpdates = removeUndefined(updates);
             firestoreBatch.update(messageRef, cleanedUpdates);
@@ -639,6 +641,44 @@ const deleteMessageFromFirestore = async (
     messageId
   );
   await deleteDoc(messageRef);
+};
+
+/**
+ * Update message with offline support
+ * Updates locally first, then syncs to Firestore
+ */
+export const updateMessage = async (
+  conversationId: string,
+  messageId: string,
+  updates: Partial<Message>
+): Promise<void> => {
+  // 1. Update local storage immediately
+  await updateMessageLocally(conversationId, messageId, updates);
+
+  // 2. Add to sync queue for offline support
+  const queueItem: SyncQueueItem = {
+    id: `update_${messageId}_${Date.now()}`,
+    type: 'message',
+    operation: 'update',
+    conversationId,
+    messageId,
+    data: updates,
+    timestamp: Date.now(),
+    retryCount: 0,
+    priority: 10, // High priority for updates
+  };
+  await addToSyncQueue(queueItem);
+
+  // 3. Try to update in Firestore if online
+  if (await isOnlineWithFirebase()) {
+    try {
+      await updateMessageInFirestore(conversationId, messageId, updates);
+      await removeFromSyncQueue(queueItem.id);
+    } catch (error) {
+      console.error('Failed to update message in Firestore:', error);
+      // Keep in queue for retry
+    }
+  }
 };
 
 /**

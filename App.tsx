@@ -655,14 +655,21 @@ const App: React.FC = () => {
         }
     }, [selectedConversationId]);
 
-    const handleTogglePin = useCallback((messageId: string) => {
+    const handleTogglePin = useCallback(async (messageId: string) => {
+        if (!selectedConversationId) return;
+        
+        // Find the target message
+        const targetConvo = conversations.find(c => c.id === selectedConversationId);
+        if (!targetConvo) return;
+        
+        const targetMsg = targetConvo.messages.find(m => m.id === messageId);
+        if (!targetMsg) return;
+        
+        const isPinning = !targetMsg.isPinned;
+        
+        // Optimistically update UI
         setConversations(prev => prev.map(convo => {
             if (convo.id === selectedConversationId) {
-                const targetMsg = convo.messages.find(m => m.id === messageId);
-                if (!targetMsg) return convo;
-                
-                const isPinning = !targetMsg.isPinned;
-                
                 return {
                     ...convo,
                     messages: convo.messages.map(msg => {
@@ -679,7 +686,46 @@ const App: React.FC = () => {
             }
             return convo;
         }));
-    }, [selectedConversationId]);
+        
+        // Sync to Firestore
+        try {
+            const { updateMessage } = await import('./services/syncService');
+            
+            // Update the target message
+            await updateMessage(selectedConversationId, messageId, { isPinned: isPinning });
+            
+            // If pinning, unpin all other messages in the conversation
+            if (isPinning) {
+                const otherPinnedMessages = targetConvo.messages.filter(
+                    m => m.id !== messageId && m.isPinned
+                );
+                
+                // Unpin all other messages
+                await Promise.all(
+                    otherPinnedMessages.map(msg => 
+                        updateMessage(selectedConversationId, msg.id, { isPinned: false })
+                    )
+                );
+            }
+        } catch (error) {
+            console.error('Error toggling pin:', error);
+            // Revert optimistic update on error
+            setConversations(prev => prev.map(convo => {
+                if (convo.id === selectedConversationId) {
+                    return {
+                        ...convo,
+                        messages: convo.messages.map(msg => {
+                            if (msg.id === messageId) {
+                                return { ...msg, isPinned: !isPinning };
+                            }
+                            return msg;
+                        })
+                    };
+                }
+                return convo;
+            }));
+        }
+    }, [selectedConversationId, conversations]);
 
     const handleTogglePinConversation = useCallback((convoId: string) => {
         setConversations(prev => prev.map(convo => 
@@ -1279,6 +1325,19 @@ const App: React.FC = () => {
                             }
                             onChangeNotificationLevel={async (level) => {
                                 await handleSetNotificationLevel(selectedConversation.id, level);
+                            }}
+                            onScrollToMessage={(messageId) => {
+                                // Close group settings and scroll to message
+                                setIsGroupSettingsOpen(false);
+                                // Use a small delay to ensure settings is closed, then scroll
+                                setTimeout(() => {
+                                    const element = document.getElementById(`msg-${messageId}`);
+                                    if (element) {
+                                        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                        element.classList.add('bg-green-50/50');
+                                        setTimeout(() => element.classList.remove('bg-green-50/50'), 2000);
+                                    }
+                                }, 200);
                             }}
                         />
                     ) : selectedConversation ? (
