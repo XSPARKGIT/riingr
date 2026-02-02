@@ -629,7 +629,10 @@ const App: React.FC = () => {
         }));
     }, [selectedConversationId]);
 
-    const handleDeleteMessage = useCallback((messageId: string) => {
+    const handleDeleteMessage = useCallback(async (messageId: string) => {
+        if (!selectedConversationId) return;
+        
+        // Optimistically update UI
         setConversations(prev => prev.map(convo => {
             if (convo.id === selectedConversationId) {
                 return {
@@ -639,6 +642,17 @@ const App: React.FC = () => {
             }
             return convo;
         }));
+        
+        // Delete from Firestore and local storage
+        try {
+            const { deleteMessage } = await import('./services/syncService');
+            await deleteMessage(selectedConversationId, messageId);
+        } catch (error) {
+            console.error('Error deleting message:', error);
+            // Revert optimistic update on error
+            // Note: In a production app, you might want to show an error toast
+            // For now, we'll let the sync service handle retries
+        }
     }, [selectedConversationId]);
 
     const handleTogglePin = useCallback((messageId: string) => {

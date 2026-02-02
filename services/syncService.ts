@@ -20,6 +20,7 @@ import {
   saveMessageLocally,
   getMessagesLocally,
   updateMessageLocally,
+  deleteMessageLocally,
   addToSyncQueue,
   getSyncQueue,
   removeFromSyncQueue,
@@ -638,6 +639,42 @@ const deleteMessageFromFirestore = async (
     messageId
   );
   await deleteDoc(messageRef);
+};
+
+/**
+ * Delete message with offline support
+ * Deletes locally first, then syncs to Firestore
+ */
+export const deleteMessage = async (
+  conversationId: string,
+  messageId: string
+): Promise<void> => {
+  // 1. Delete from local storage immediately
+  await deleteMessageLocally(conversationId, messageId);
+
+  // 2. Add to sync queue for offline support
+  const queueItem: SyncQueueItem = {
+    id: `delete_${messageId}_${Date.now()}`,
+    type: 'message',
+    operation: 'delete',
+    conversationId,
+    messageId,
+    timestamp: Date.now(),
+    retryCount: 0,
+    priority: 10, // High priority for deletions
+  };
+  await addToSyncQueue(queueItem);
+
+  // 3. Try to delete from Firestore if online
+  if (await isOnlineWithFirebase()) {
+    try {
+      await deleteMessageFromFirestore(conversationId, messageId);
+      await removeFromSyncQueue(queueItem.id);
+    } catch (error) {
+      console.error('Failed to delete message from Firestore:', error);
+      // Keep in queue for retry
+    }
+  }
 };
 
 /**

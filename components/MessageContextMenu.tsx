@@ -27,6 +27,7 @@ interface ContextMenuProps {
     onReport: (id: string) => void;
     onReact: (id: string, emoji: string) => void;
     onTranslate?: () => void; // New action
+    currentUserId?: string; // Current user ID to check if message can be deleted
 }
 
 const quickEmojis = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
@@ -52,7 +53,7 @@ const allEmojis = [
 ];
 
 export const MessageContextMenu: React.FC<ContextMenuProps> = ({
-    x, y, message, onClose, onReply, onDelete, onCopy, onPin, onStar, onReport, onReact, onTranslate
+    x, y, message, onClose, onReply, onDelete, onCopy, onPin, onStar, onReport, currentUserId, onReact, onTranslate
 }) => {
     const [view, setView] = useState<'main' | 'more' | 'emoji-picker'>('main');
     const menuRef = useRef<HTMLDivElement>(null);
@@ -114,7 +115,10 @@ export const MessageContextMenu: React.FC<ContextMenuProps> = ({
                             />
                         )}
                         <MenuButton icon={<CopyIcon className="h-4 w-4" />} label="Copy text" onClick={() => handleAction(() => onCopy(message.text || ''))} />
-                        <MenuButton icon={<TrashIcon className="h-4 w-4" />} label="Delete" variant="danger" onClick={() => handleAction(() => onDelete(message.id))} />
+                        {/* Only show delete option for own messages */}
+                        {(message.senderId === 'me' || message.senderId === currentUserId) && (
+                            <MenuButton icon={<TrashIcon className="h-4 w-4" />} label="Delete" variant="danger" onClick={() => handleAction(() => onDelete(message.id))} />
+                        )}
                         <MenuButton icon={<MoreIcon className="h-4 w-4" />} label="More options..." onClick={() => setView('more')} />
                     </div>
                 </div>

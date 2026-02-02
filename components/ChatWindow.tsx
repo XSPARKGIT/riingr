@@ -677,6 +677,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                     onReport={() => {}}
                     onReact={onAddReaction}
                     onTranslate={() => handleTranslate(contextMenu.msg)}
+                    currentUserId={currentUserId}
                 />
             )}
 
