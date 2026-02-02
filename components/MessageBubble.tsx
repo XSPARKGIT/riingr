@@ -173,7 +173,10 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                     </div>
                 )}
 
-                <div className={`${isSticker ? '' : isSystem ? '' : 'shadow-sm'} flex flex-col relative ${bubbleClasses}`}>
+                <div 
+                    className={`${isSticker ? '' : isSystem ? '' : 'shadow-sm'} flex flex-col relative ${bubbleClasses}`}
+                    style={isOwnMessage ? { ...accentColorStyle, ...accentShadowStyle } : isMentioned ? { ...accentBorderStyle, ...accentShadowStyle } : {}}
+                >
                     {/* Reply Preview - Simple and constrained */}
                     {replyToMessage && (
                         <div 

@@ -72,12 +72,9 @@ export const GroupSettingsView: React.FC<GroupSettingsViewProps> = ({
   }>>([]);
   const [isLoadingInvites, setIsLoadingInvites] = useState(false);
   
-  // Load active invite links on mount
-  useEffect(() => {
-    if (isAdmin) {
-      loadInviteLinks();
-    }
-  }, [conversation.id, isAdmin]);
+  // Calculate admin and muted status first (before useEffect that uses them)
+  const isAdmin = conversation.admins?.includes(currentUserId);
+  const isMuted = mutedUntil !== undefined && mutedUntil !== null && (mutedUntil === -1 || mutedUntil > Date.now());
   
   const loadInviteLinks = async () => {
     try {
@@ -90,6 +87,13 @@ export const GroupSettingsView: React.FC<GroupSettingsViewProps> = ({
       setIsLoadingInvites(false);
     }
   };
+  
+  // Load active invite links on mount
+  useEffect(() => {
+    if (isAdmin) {
+      loadInviteLinks();
+    }
+  }, [conversation.id, isAdmin]);
   
   const handleRevokeInvite = async (token: string) => {
     if (!window.confirm('Are you sure you want to revoke this invite link?')) return;
@@ -125,9 +129,6 @@ export const GroupSettingsView: React.FC<GroupSettingsViewProps> = ({
       setIsGeneratingInvite(false);
     }
   };
-
-  const isAdmin = conversation.admins?.includes(currentUserId);
-  const isMuted = mutedUntil !== undefined && mutedUntil !== null && (mutedUntil === -1 || mutedUntil > Date.now());
 
   const handleSaveName = async () => {
     if (editName.trim() && editName.trim() !== conversation.name) {

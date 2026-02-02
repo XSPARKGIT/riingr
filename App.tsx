@@ -1081,8 +1081,17 @@ const App: React.FC = () => {
     const handleUpdateGroup = async (groupId: string, updates: Partial<Conversation>) => {
         const firebaseUser = getCurrentUser();
         if (!firebaseUser) throw new Error('User not authenticated');
+        
+        // Optimistically update the conversation state immediately
+        setConversations(prev => prev.map(convo => {
+            if (convo.id === groupId) {
+                return { ...convo, ...updates };
+            }
+            return convo;
+        }));
+        
+        // Then update Firestore (real-time listener will sync any conflicts)
         await updateGroupConversation(groupId, updates, firebaseUser.uid);
-        // Real-time listener will update state
     };
 
     const handleAddMember = async (groupId: string, userId: string) => {
