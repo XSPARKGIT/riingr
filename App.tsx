@@ -435,7 +435,7 @@ const App: React.FC = () => {
                 // Clear all local data to prevent data leakage between users
                 await clearAllLocalData();
                 
-                setIsAuthenticated(false);
+            setIsAuthenticated(false);
                 setConversations([]); // Clear conversations from state
                 localStorage.removeItem(AUTH_KEY);
                 localStorage.removeItem(USER_KEY);
@@ -1170,14 +1170,19 @@ const App: React.FC = () => {
                         className={`bg-white border-r border-slate-200 flex-col min-h-0 transition-all duration-200 ${
                             (showChat || showSettingsDetail) ? 'hidden md:flex' : 'flex w-full md:w-auto'
                         }`}
-                        style={!(showChat || showSettingsDetail) ? { 
-                            width: `${conversationListWidth}px`, 
+                        style={{ 
+                            width: (showChat || showSettingsDetail) 
+                                ? `${conversationListWidth}px` 
+                                : (typeof window !== 'undefined' && window.innerWidth >= 768) 
+                                    ? `${conversationListWidth}px` 
+                                    : '100%',
                             minWidth: '0px', 
                             maxWidth: '600px',
-                            overflow: conversationListWidth < 50 ? 'hidden' : 'visible'
-                        } : undefined}
+                            overflow: conversationListWidth < 50 ? 'hidden' : 'visible',
+                            flexShrink: 0
+                        }}
                     >
-                       <ConversationList 
+                   <ConversationList 
                      conversations={conversations}
                      selectedConversationId={selectedConversationId}
                      onSelectConversation={handleSelectConversation}
@@ -1202,25 +1207,23 @@ const App: React.FC = () => {
                      }}
                      onJoinByInvite={handleJoinGroupByInvite}
                    />
-                    </div>
-                    
-                    {/* Resizable Separator */}
-                    {!(showChat || showSettingsDetail) && (
-                        <div
-                            onMouseDown={handleResizeStart}
-                            className={`hidden md:flex w-1 bg-slate-200 hover:bg-green-500 cursor-col-resize transition-all relative group ${
-                                isResizing ? 'bg-green-500' : ''
-                            }`}
-                            style={{ flexShrink: 0 }}
-                            title="Drag to resize conversation list"
-                        >
-                            {/* Visual indicator on hover */}
-                            <div className="absolute inset-0 bg-green-500 opacity-0 group-hover:opacity-100 transition-opacity" />
-                        </div>
-                    )}
                 </div>
                 
-                <div className={`flex-1 flex-col min-h-0 ${(showChat || showSettingsDetail || isGroupSettingsOpen) ? 'flex' : 'hidden md:flex'}`}>
+                    {/* Resizable Separator - Always visible on desktop */}
+                    <div
+                        onMouseDown={handleResizeStart}
+                        className={`hidden md:flex w-1 bg-slate-200 hover:bg-green-500 cursor-col-resize transition-all relative group ${
+                            isResizing ? 'bg-green-500' : ''
+                        }`}
+                        style={{ flexShrink: 0 }}
+                        title="Drag to resize conversation list"
+                    >
+                        {/* Visual indicator on hover */}
+                        <div className="absolute inset-0 bg-green-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
+                </div>
+                
+                <div className={`flex-1 flex-col min-h-0 min-w-0 ${(showChat || showSettingsDetail || isGroupSettingsOpen) ? 'flex' : 'hidden md:flex'}`}>
                     {isGroupSettingsOpen && selectedConversation && selectedConversation.type === 'group' ? (
                         <GroupSettingsView
                             conversation={selectedConversation}
