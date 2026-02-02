@@ -15,6 +15,7 @@ interface MessageBubbleProps {
     onScrollToMessage?: (id: string) => void;
     currentUserId?: string;
     onMentionClick?: (user: User, event: React.MouseEvent) => void;
+    accentColor?: string; // Theme accent color
 }
 
 // Memoize MessageBubble to prevent unnecessary re-renders when replyingTo changes
@@ -30,7 +31,8 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
     onVotePoll,
     onScrollToMessage,
     currentUserId,
-    onMentionClick
+    onMentionClick,
+    accentColor = '#16a34a' // Default green
 }) => {
     const [offsetX, setOffsetX] = useState(0);
     const [isSwiping, setIsSwiping] = useState(false);
@@ -127,14 +129,20 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
         (message.imageUrl.includes('klipy.com') && !message.text && !message.imageUrl.includes('/gifs/'))
     );
 
+    // Use theme accent color for own messages and mentions
+    const accentColorStyle = { backgroundColor: accentColor };
+    const accentBorderStyle = { borderColor: accentColor };
+    const accentTextStyle = { color: accentColor };
+    const accentShadowStyle = { boxShadow: `0 4px 6px -1px ${accentColor}20, 0 2px 4px -1px ${accentColor}10` };
+    
     const bubbleClasses = isSticker
         ? '' // No bubble background for stickers
         : isSystem
             ? 'bg-slate-100/90 text-slate-600 rounded-xl px-3 py-1.5 border border-slate-200 shadow-none text-[11px] leading-snug'
             : isOwnMessage
-        ? `bg-green-600 text-white ${radiusClasses}`
+        ? `text-white ${radiusClasses}`
                 : `bg-white text-slate-800 ${radiusClasses} border ${
-                    isMentioned ? 'border-green-400 shadow-md shadow-green-100' : 'border-slate-100'
+                    isMentioned ? 'shadow-md' : 'border-slate-100'
                   }`;
 
     // Calculate total votes for the poll
@@ -160,8 +168,8 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                 {/* Pinned Indicator Above Bubble */}
                 {message.isPinned && (
                     <div className={`flex items-center space-x-1.5 mb-1 opacity-60 px-2 min-w-0 ${isOwnMessage ? 'justify-end' : 'justify-start'}`}>
-                        <PinIcon className="h-3 w-3 text-green-600 shrink-0" />
-                        <span className="text-[9px] font-black text-green-600 uppercase tracking-widest truncate">Pinned</span>
+                        <PinIcon className="h-3 w-3 shrink-0" style={accentTextStyle} />
+                        <span className="text-[9px] font-black uppercase tracking-widest truncate" style={accentTextStyle}>Pinned</span>
                     </div>
                 )}
 
@@ -170,7 +178,8 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                     {replyToMessage && (
                         <div 
                             onClick={(e) => { e.stopPropagation(); onScrollToMessage?.(replyToMessage.id); }}
-                            className="m-2 mb-0 bg-black/5 rounded-lg p-2 border-l-2 border-green-500 cursor-pointer hover:bg-black/10 transition-colors"
+                            className="m-2 mb-0 bg-black/5 rounded-lg p-2 border-l-2 cursor-pointer hover:bg-black/10 transition-colors"
+                            style={accentBorderStyle}
                         >
                             <p className="text-[10px] font-bold opacity-70 uppercase truncate">
                                 {participants.find(p => p.id === replyToMessage.senderId)?.name || 'Unknown'}
@@ -218,7 +227,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                                 </div>
                              </div>
                              <div className="px-2 pb-1 min-w-0">
-                                <p className="text-[13px] font-black uppercase tracking-widest text-green-500 mb-0.5 truncate">Location</p>
+                                <p className="text-[13px] font-black uppercase tracking-widest mb-0.5 truncate" style={accentTextStyle}>Location</p>
                                 <p className="text-[14px] font-bold leading-tight opacity-90 truncate">
                                     {message.location.address || `${message.location.lat.toFixed(4)}, ${message.location.lng.toFixed(4)}`}
                                 </p>
@@ -325,7 +334,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                     <div className={`flex items-center justify-end ${isSticker ? 'px-0 pb-1 -mt-1' : 'px-3 pb-1.5 -mt-2'} space-x-1 shrink-0 ${isSticker ? 'text-slate-500' : (isOwnMessage ? 'text-white/70' : 'text-slate-400')}`}>
                         {message.isStarred && <StarIcon className={`h-2.5 w-2.5 sm:h-3 sm:w-3 shrink-0 ${isSticker ? 'text-yellow-400' : (isOwnMessage ? 'text-white/60' : 'text-yellow-400')}`} />}
                         {isMentioned && (
-                            <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-widest text-green-600 mr-1">
+                            <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-widest mr-1" style={accentTextStyle}>
                                 Mentioned you
                             </span>
                         )}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { Conversation, User, Message, ConversationNotificationLevel } from '../types';
 import { ArrowLeftIcon, UsersIcon, TrashIcon } from '../constants';
 import { AddMemberModal } from './AddMemberModal';
@@ -6,7 +6,7 @@ import { RemoveMemberModal } from './RemoveMemberModal';
 import { GroupAvatarPicker } from './GroupAvatarPicker';
 import { EditDescriptionModal } from './EditDescriptionModal';
 import { MuteOptionsModal } from './MuteOptionsModal';
-import { approvePendingMember, rejectPendingMember, blockUser, reportUser, createGroupInviteLink } from '../services/firestoreService';
+import { approvePendingMember, rejectPendingMember, blockUser, reportUser, createGroupInviteLink, getGroupInviteLinks, revokeInviteLink, regenerateInviteLink } from '../services/firestoreService';
 
 interface GroupSettingsViewProps {
   conversation: Conversation;
@@ -64,6 +64,67 @@ export const GroupSettingsView: React.FC<GroupSettingsViewProps> = ({
   const [editName, setEditName] = useState(conversation.name || '');
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [isGeneratingInvite, setIsGeneratingInvite] = useState(false);
+  const [activeInviteLinks, setActiveInviteLinks] = useState<Array<{
+    token: string;
+    createdAt: number;
+    expiresAt?: number;
+    active: boolean;
+  }>>([]);
+  const [isLoadingInvites, setIsLoadingInvites] = useState(false);
+  
+  // Load active invite links on mount
+  useEffect(() => {
+    if (isAdmin) {
+      loadInviteLinks();
+    }
+  }, [conversation.id, isAdmin]);
+  
+  const loadInviteLinks = async () => {
+    try {
+      setIsLoadingInvites(true);
+      const invites = await getGroupInviteLinks(conversation.id);
+      setActiveInviteLinks(invites);
+    } catch (error) {
+      console.error('Error loading invite links:', error);
+    } finally {
+      setIsLoadingInvites(false);
+    }
+  };
+  
+  const handleRevokeInvite = async (token: string) => {
+    if (!window.confirm('Are you sure you want to revoke this invite link?')) return;
+    try {
+      await revokeInviteLink(token);
+      await loadInviteLinks();
+      alert('Invite link revoked');
+    } catch (error) {
+      console.error('Error revoking invite link:', error);
+      alert('Could not revoke invite link. Please try again.');
+    }
+  };
+  
+  const handleRegenerateInvite = async (token: string) => {
+    if (!window.confirm('This will revoke the old link and create a new one. Continue?')) return;
+    try {
+      setIsGeneratingInvite(true);
+      const newToken = await regenerateInviteLink(conversation.id, token);
+      const base = typeof window !== 'undefined' ? window.location.origin : '';
+      const url = `${base}/?invite=${encodeURIComponent(newToken)}`;
+      setInviteLink(url);
+      await loadInviteLinks();
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(url);
+        alert('New invite link created and copied to clipboard.');
+      } else {
+        window.prompt('New invite link (copy and share):', url);
+      }
+    } catch (error) {
+      console.error('Error regenerating invite link:', error);
+      alert('Could not regenerate invite link. Please try again.');
+    } finally {
+      setIsGeneratingInvite(false);
+    }
+  };
 
   const isAdmin = conversation.admins?.includes(currentUserId);
   const isMuted = mutedUntil !== undefined && mutedUntil !== null && (mutedUntil === -1 || mutedUntil > Date.now());
@@ -473,43 +534,142 @@ export const GroupSettingsView: React.FC<GroupSettingsViewProps> = ({
           {/* Group Actions */}
           <div className="mt-4 bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
             <div className="space-y-4">
-              {/* Invite link */}
+              {/* Invite links */}
               {isAdmin && (
-                <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
-                  <div className="flex flex-col min-w-0">
-                    <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
-                      Invite link
-                    </span>
-                    <span className="text-[13px] font-bold text-slate-800 truncate">
-                      {inviteLink ? 'Link ready to share' : 'Create a link to invite members'}
-                    </span>
-                    {inviteLink && (
-                      <span className="text-[10px] font-mono text-slate-400 truncate mt-0.5">
-                        {inviteLink}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
+                        Invite links
                       </span>
-                    )}
+                      <span className="text-[13px] font-bold text-slate-800">
+                        {activeInviteLinks.length} active {activeInviteLinks.length === 1 ? 'link' : 'links'}
+                      </span>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        try {
+                          setIsGeneratingInvite(true);
+                          const token = await createGroupInviteLink(conversation.id);
+                          const base = typeof window !== 'undefined' ? window.location.origin : '';
+                          const url = `${base}/?invite=${encodeURIComponent(token)}`;
+                          setInviteLink(url);
+                          await loadInviteLinks();
+                          if (navigator.clipboard && navigator.clipboard.writeText) {
+                            await navigator.clipboard.writeText(url);
+                            alert('Invite link created and copied to clipboard.');
+                          } else {
+                            window.prompt('Invite link (copy and share):', url);
+                          }
+                        } catch (error) {
+                          console.error('Error creating invite link:', error);
+                          alert('Could not create invite link. Please try again.');
+                        } finally {
+                          setIsGeneratingInvite(false);
+                        }
+                      }}
+                      disabled={isGeneratingInvite}
+                      className="ml-3 px-3 py-1.5 rounded-full bg-green-600 text-white text-[11px] font-black uppercase tracking-widest hover:bg-green-700 disabled:opacity-60 disabled:cursor-wait transition-colors shrink-0"
+                    >
+                      {isGeneratingInvite ? 'Creating…' : 'Create Link'}
+                    </button>
                   </div>
-                  <button
-                    onClick={handleCreateInviteLink}
-                    disabled={isGeneratingInvite}
-                    className="ml-3 px-3 py-1.5 rounded-full bg-green-600 text-white text-[11px] font-black uppercase tracking-widest hover:bg-green-700 disabled:opacity-60 disabled:cursor-wait transition-colors shrink-0"
-                  >
-                    {isGeneratingInvite ? 'Creating…' : inviteLink ? 'Copy Link' : 'Create Link'}
-                  </button>
+                  
+                  {/* Active invite links list */}
+                  {isLoadingInvites ? (
+                    <div className="text-center py-4 text-xs text-slate-400">Loading invite links...</div>
+                  ) : activeInviteLinks.length > 0 ? (
+                    <div className="space-y-2">
+                      {activeInviteLinks.map((invite) => {
+                        const base = typeof window !== 'undefined' ? window.location.origin : '';
+                        const url = `${base}/?invite=${encodeURIComponent(invite.token)}`;
+                        const isExpired = invite.expiresAt ? Date.now() > invite.expiresAt : false;
+                        const expiresIn = invite.expiresAt ? Math.max(0, invite.expiresAt - Date.now()) : null;
+                        const daysUntilExpiry = expiresIn ? Math.floor(expiresIn / (1000 * 60 * 60 * 24)) : null;
+                        
+                        return (
+                          <div
+                            key={invite.token}
+                            className="p-3 rounded-xl bg-white border border-slate-100"
+                          >
+                            <div className="flex items-start justify-between gap-2 mb-2">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-[10px] font-mono text-slate-500 truncate">
+                                    {url}
+                                  </span>
+                                  {isExpired && (
+                                    <span className="text-[9px] font-black text-red-600 uppercase tracking-widest px-1.5 py-0.5 bg-red-50 rounded">
+                                      Expired
+                                    </span>
+                                  )}
+                                  {!isExpired && invite.expiresAt && daysUntilExpiry !== null && (
+                                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest px-1.5 py-0.5 bg-slate-50 rounded">
+                                      {daysUntilExpiry === 0 ? 'Expires today' : `${daysUntilExpiry}d left`}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-[10px] text-slate-400">
+                                  Created {new Date(invite.createdAt).toLocaleDateString()}
+                                  {invite.expiresAt && !isExpired && (
+                                    <> • Expires {new Date(invite.expiresAt).toLocaleDateString()}</>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={async () => {
+                                  if (navigator.clipboard && navigator.clipboard.writeText) {
+                                    await navigator.clipboard.writeText(url);
+                                    alert('Link copied to clipboard');
+                                  } else {
+                                    window.prompt('Invite link (copy and share):', url);
+                                  }
+                                }}
+                                className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition-colors"
+                              >
+                                Copy
+                              </button>
+                              <button
+                                onClick={() => handleRegenerateInvite(invite.token)}
+                                className="px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 text-[10px] font-black uppercase tracking-widest hover:bg-blue-200 transition-colors"
+                              >
+                                Regenerate
+                              </button>
+                              <button
+                                onClick={() => handleRevokeInvite(invite.token)}
+                                className="px-2.5 py-1 rounded-full bg-red-100 text-red-700 text-[10px] font-black uppercase tracking-widest hover:bg-red-200 transition-colors"
+                              >
+                                Revoke
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-center py-4 text-xs text-slate-400">No active invite links</div>
+                  )}
                 </div>
               )}
 
               {/* Notification preferences */}
               <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
-                <div className="flex flex-col">
+                <div className="flex flex-col min-w-0">
                   <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
                     Notifications
                   </span>
                   <span className="text-[13px] font-bold text-slate-800">
                     {renderNotificationLevelLabel(notificationLevel)}
                   </span>
+                  <span className="text-[10px] text-slate-500 mt-0.5">
+                    {notificationLevel === 'all' && 'You\'ll receive notifications for all messages'}
+                    {notificationLevel === 'mentions' && 'You\'ll only receive notifications when mentioned (@you)'}
+                    {notificationLevel === 'none' && 'You won\'t receive any notifications'}
+                  </span>
                 </div>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 ml-3 shrink-0">
                   {(['all', 'mentions', 'none'] as ConversationNotificationLevel[]).map((level) => (
                     <button
                       key={level}
@@ -519,6 +679,11 @@ export const GroupSettingsView: React.FC<GroupSettingsViewProps> = ({
                           ? 'bg-green-600 text-white border-green-600 shadow-sm'
                           : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400'
                       }`}
+                      title={
+                        level === 'all' ? 'Notify for all messages' :
+                        level === 'mentions' ? 'Notify only when mentioned' :
+                        'No notifications'
+                      }
                     >
                       {level === 'all' ? 'All' : level === 'mentions' ? '@ Mentions' : 'None'}
                     </button>

@@ -1304,18 +1304,25 @@ export const reportUser = async (
  * Create a simple invite link token for a group
  */
 export const createGroupInviteLink = async (
-  groupId: string
+  groupId: string,
+  expiresAt?: number // Optional expiration timestamp
 ): Promise<string> => {
   const token = `${groupId}_${Date.now()}_${Math.random()
     .toString(36)
     .slice(2, 8)}`;
 
   const inviteRef = doc(db, 'invites', token);
-  await setDoc(inviteRef, {
+  const inviteData: any = {
     groupId,
     createdAt: serverTimestamp(),
     active: true,
-  });
+  };
+  
+  if (expiresAt) {
+    inviteData.expiresAt = Timestamp.fromMillis(expiresAt);
+  }
+  
+  await setDoc(inviteRef, inviteData);
 
   // Mark group as having invite links enabled
   const groupRef = doc(db, 'conversations', groupId);
@@ -1325,6 +1332,78 @@ export const createGroupInviteLink = async (
   });
 
   return token;
+};
+
+/**
+ * Get all active invite links for a group
+ */
+export const getGroupInviteLinks = async (
+  groupId: string
+): Promise<Array<{
+  token: string;
+  createdAt: number;
+  expiresAt?: number;
+  active: boolean;
+}>> => {
+  const invitesRef = collection(db, 'invites');
+  const q = query(
+    invitesRef,
+    where('groupId', '==', groupId),
+    where('active', '==', true)
+  );
+  
+  const snapshot = await getDocs(q);
+  const invites: Array<{
+    token: string;
+    createdAt: number;
+    expiresAt?: number;
+    active: boolean;
+  }> = [];
+  
+  snapshot.forEach((docSnap) => {
+    const data = docSnap.data();
+    const invite = {
+      token: docSnap.id,
+      createdAt: data.createdAt?.toMillis() || Date.now(),
+      active: data.active,
+    };
+    
+    if (data.expiresAt) {
+      invite.expiresAt = data.expiresAt.toMillis();
+    }
+    
+    invites.push(invite);
+  });
+  
+  return invites.sort((a, b) => b.createdAt - a.createdAt);
+};
+
+/**
+ * Revoke an invite link (deactivate it)
+ */
+export const revokeInviteLink = async (
+  token: string
+): Promise<void> => {
+  const inviteRef = doc(db, 'invites', token);
+  await updateDoc(inviteRef, {
+    active: false,
+    revokedAt: serverTimestamp(),
+  });
+};
+
+/**
+ * Regenerate an invite link (revoke old, create new)
+ */
+export const regenerateInviteLink = async (
+  groupId: string,
+  oldToken: string,
+  expiresAt?: number
+): Promise<string> => {
+  // Revoke the old link
+  await revokeInviteLink(oldToken);
+  
+  // Create a new link
+  return await createGroupInviteLink(groupId, expiresAt);
 };
 
 /**

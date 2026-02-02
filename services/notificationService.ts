@@ -103,3 +103,31 @@ export const shouldShowNotification = (
 ): boolean => {
   return !isConversationMuted(userId, conversationId, mutedConversations);
 };
+
+/**
+ * Check if a notification should be shown based on notification level
+ * @param notificationLevel - The notification level ('all', 'mentions', 'none')
+ * @param message - The message to check
+ * @param currentUserId - The current user ID
+ * @returns true if notification should be shown, false otherwise
+ */
+export const shouldShowNotificationForLevel = (
+  notificationLevel: 'all' | 'mentions' | 'none',
+  message: { mentions?: string[]; text?: string },
+  currentUserId?: string
+): boolean => {
+  if (notificationLevel === 'none') {
+    return false;
+  }
+  
+  if (notificationLevel === 'mentions') {
+    // Only show notification if user is mentioned
+    if (!currentUserId || !message.mentions) {
+      return false;
+    }
+    return message.mentions.includes(currentUserId);
+  }
+  
+  // notificationLevel === 'all'
+  return true;
+};

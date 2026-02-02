@@ -418,9 +418,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                     onClick={() => scrollToMessage(pinnedMessage.id)}
                 >
                     <div className="flex items-center min-w-0 flex-1">
-                        <PinIcon className="h-4 w-4 text-green-600 mr-3 shrink-0" />
+                        <PinIcon className="h-4 w-4 mr-3 shrink-0" style={{ color: conversation.theme?.accentColor || '#16a34a' }} />
                         <div className="truncate min-w-0">
-                            <p className="text-[10px] font-black text-green-600 uppercase tracking-widest leading-none mb-0.5">Pinned Message</p>
+                            <p className="text-[10px] font-black uppercase tracking-widest leading-none mb-0.5" style={{ color: conversation.theme?.accentColor || '#16a34a' }}>Pinned Message</p>
                             <p className="text-xs font-bold text-slate-700 truncate">
                                 {pinnedMessage.text || (pinnedMessage.imageUrl ? 'Photo' : pinnedMessage.poll ? 'Poll' : pinnedMessage.file ? 'File' : 'Media')}
                             </p>
@@ -516,6 +516,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                         });
                                     }}
                                     currentUserId={currentUserId}
+                                    accentColor={conversation.theme?.accentColor || '#16a34a'}
                                 />
                             </div>
                         );

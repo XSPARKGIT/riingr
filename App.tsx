@@ -51,6 +51,7 @@ import {
 import { sendMessage as syncSendMessage, startBackgroundSync, stopBackgroundSync, syncAllFromFirestore, subscribeToMessages } from './services/syncService';
 import { initConnectionListener } from './services/connectionService';
 import { getConversationsLocally, getMessagesLocally, getSyncQueueCount, clearAllLocalData } from './services/localStorageService';
+import { shouldShowNotificationForLevel } from './services/notificationService';
 import type { Conversation, Message, User, PollOption, MutedConversation, ConversationPreference, ConversationNotificationLevel } from './types';
 import { INITIAL_CONVERSATIONS, MessengerIcon } from './constants';
 import { meAvatar } from './assets';
@@ -664,9 +665,9 @@ const App: React.FC = () => {
         
         const targetMsg = targetConvo.messages.find(m => m.id === messageId);
         if (!targetMsg) return;
-        
-        const isPinning = !targetMsg.isPinned;
-        
+                
+                const isPinning = !targetMsg.isPinned;
+                
         // Optimistically update UI
         setConversations(prev => prev.map(convo => {
             if (convo.id === selectedConversationId) {
@@ -786,6 +787,37 @@ const App: React.FC = () => {
                         
                         if (prevMessageIds === newMessageIds && prevConvo.messages.length === newMessages.length) {
                             return prevConvo; // No changes, don't update
+                        }
+                        
+                        // Check if we should show notification for new messages
+                        const prevMessageCount = prevConvo.messages.length;
+                        if (newMessages.length > prevMessageCount && currentUser?.id) {
+                            // New messages arrived - check notification level
+                            const pref = conversationPreferences.find(p => p.conversationId === conversationId);
+                            const notificationLevel = pref?.notificationLevel || 'all';
+                            
+                            // Get the newest message (last in array since sorted ascending)
+                            const newestMessage = newMessages[newMessages.length - 1];
+                            
+                            // Only show notification if:
+                            // 1. Message is not from current user
+                            // 2. Notification level allows it
+                            if (newestMessage.senderId !== currentUser.id && 
+                                newestMessage.senderId !== 'me' &&
+                                shouldShowNotificationForLevel(notificationLevel, newestMessage, currentUser.id)) {
+                                
+                                // Show browser notification (if permission granted)
+                                if ('Notification' in window && Notification.permission === 'granted') {
+                                    const conversationName = prevConvo.name || prevConvo.participants
+                                        .find(p => p.id !== currentUser.id)?.name || 'Chat';
+                                    
+                                    new Notification(`${conversationName}`, {
+                                        body: newestMessage.text || (newestMessage.imageUrl ? '📷 Photo' : newestMessage.file ? '📎 File' : 'New message'),
+                                        icon: prevConvo.avatar || '/icon-192.png',
+                                        tag: conversationId, // Prevent duplicate notifications
+                                    });
+                                }
+                            }
                         }
                         
                         return { ...prevConvo, messages: newMessages };
