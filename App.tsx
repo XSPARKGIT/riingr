@@ -2,9 +2,11 @@ import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { ConversationList } from './components/ConversationList';
 import { ChatWindow } from './components/ChatWindow';
 import { Header } from './components/Header';
+import { Sidebar } from './components/Sidebar';
 import { AuthScreen } from './components/AuthScreen';
 import { OnboardingProfile } from './components/OnboardingProfile';
 import { GroupSettingsView } from './components/GroupSettingsView';
+import { GroupCreationModal } from './components/GroupCreationModal';
 import { 
     EditProfileSection, 
     SupportPopup,
@@ -72,12 +74,25 @@ const App: React.FC = () => {
     const [isProfileLoading, setIsProfileLoading] = useState<boolean>(false);
     const [mutedConversations, setMutedConversations] = useState<Map<string, number | null>>(new Map());
     const [isGroupSettingsOpen, setIsGroupSettingsOpen] = useState(false);
+    const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
     const [groupMediaMessages, setGroupMediaMessages] = useState<Message[]>([]);
     const [groupFileMessages, setGroupFileMessages] = useState<Message[]>([]);
     const [groupPinnedMessages, setGroupPinnedMessages] = useState<Message[]>([]);
     const [conversationPreferences, setConversationPreferences] = useState<ConversationPreference[]>([]);
     const prevSyncQueueCountRef = useRef<number>(0);
     const selectedConversationIdRef = useRef<string | null>(selectedConversationId);
+    
+    // Resizable conversation list state
+    const [conversationListWidth, setConversationListWidth] = useState<number>(() => {
+        const saved = localStorage.getItem('riingr_conversation_list_width');
+        return saved ? parseInt(saved, 10) : 384; // Default: 384px (w-96)
+    });
+    const [isResizing, setIsResizing] = useState(false);
+    const resizeStartXRef = useRef<number>(0);
+    const resizeStartWidthRef = useRef<number>(0);
+    
+    // Sidebar is visible when conversation list is minimized (width < 200px)
+    const isConversationListMinimized = conversationListWidth < 200;
     
     const [currentUser, setCurrentUser] = useState<User | null>({
             id: 'me',
@@ -91,6 +106,45 @@ const App: React.FC = () => {
     useEffect(() => {
         selectedConversationIdRef.current = selectedConversationId;
     }, [selectedConversationId]);
+
+    // Save conversation list width to localStorage
+    useEffect(() => {
+        localStorage.setItem('riingr_conversation_list_width', conversationListWidth.toString());
+    }, [conversationListWidth]);
+
+    // Handle resizing
+    const handleResizeStart = useCallback((e: React.MouseEvent) => {
+        e.preventDefault();
+        setIsResizing(true);
+        resizeStartXRef.current = e.clientX;
+        resizeStartWidthRef.current = conversationListWidth;
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+    }, [conversationListWidth]);
+
+    useEffect(() => {
+        if (!isResizing) return;
+
+        const handleMouseMove = (e: MouseEvent) => {
+            const deltaX = e.clientX - resizeStartXRef.current;
+            const newWidth = Math.max(0, Math.min(600, resizeStartWidthRef.current + deltaX));
+            setConversationListWidth(newWidth);
+        };
+
+        const handleMouseUp = () => {
+            setIsResizing(false);
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+        };
+
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+
+        return () => {
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [isResizing]);
 
     // Load contacts from Firestore when user is authenticated
     useEffect(() => {
@@ -1094,8 +1148,36 @@ const App: React.FC = () => {
                 />
             </div>
             <div className="flex-1 flex overflow-hidden min-h-0">
-                <div className={`md:flex md:w-80 lg:w-96 bg-white border-r border-slate-200 flex-col min-h-0 ${(showChat || showSettingsDetail) ? 'hidden' : 'flex w-full'}`}>
-                   <ConversationList 
+                {/* Sidebar with circular avatars - only visible when conversation list is minimized */}
+                {isConversationListMinimized && (
+                    <Sidebar
+                        conversations={conversations}
+                        contacts={contacts}
+                        currentUserId={currentUser?.id}
+                        selectedConversationId={selectedConversationId}
+                        onSelectConversation={handleSelectConversation}
+                        onSelectContact={handleSelectContact}
+                        onSelectSettings={handleSelectSettings}
+                        activeSection={settingsCategory ? 'settings' : 'chats'}
+                        onCreateGroup={() => setIsGroupModalOpen(true)}
+                        mutedConversations={mutedConversations}
+                    />
+                )}
+                
+                {/* Conversation List with Resizable Separator */}
+                <div className="flex items-stretch relative">
+                    <div 
+                        className={`bg-white border-r border-slate-200 flex-col min-h-0 transition-all duration-200 ${
+                            (showChat || showSettingsDetail) ? 'hidden md:flex' : 'flex w-full md:w-auto'
+                        }`}
+                        style={!(showChat || showSettingsDetail) ? { 
+                            width: `${conversationListWidth}px`, 
+                            minWidth: '0px', 
+                            maxWidth: '600px',
+                            overflow: conversationListWidth < 50 ? 'hidden' : 'visible'
+                        } : undefined}
+                    >
+                       <ConversationList 
                      conversations={conversations}
                      selectedConversationId={selectedConversationId}
                      onSelectConversation={handleSelectConversation}
@@ -1120,6 +1202,22 @@ const App: React.FC = () => {
                      }}
                      onJoinByInvite={handleJoinGroupByInvite}
                    />
+                    </div>
+                    
+                    {/* Resizable Separator */}
+                    {!(showChat || showSettingsDetail) && (
+                        <div
+                            onMouseDown={handleResizeStart}
+                            className={`hidden md:flex w-1 bg-slate-200 hover:bg-green-500 cursor-col-resize transition-all relative group ${
+                                isResizing ? 'bg-green-500' : ''
+                            }`}
+                            style={{ flexShrink: 0 }}
+                            title="Drag to resize conversation list"
+                        >
+                            {/* Visual indicator on hover */}
+                            <div className="absolute inset-0 bg-green-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
+                    )}
                 </div>
                 
                 <div className={`flex-1 flex-col min-h-0 ${(showChat || showSettingsDetail || isGroupSettingsOpen) ? 'flex' : 'hidden md:flex'}`}>
@@ -1208,6 +1306,16 @@ const App: React.FC = () => {
                 </div>
             </div>
             {isSupportPopupOpen && <SupportPopup onClose={() => setIsSupportPopupOpen(false)} />}
+            {isGroupModalOpen && currentUser?.id && (
+                <GroupCreationModal
+                    isOpen={isGroupModalOpen}
+                    onClose={() => setIsGroupModalOpen(false)}
+                    onCreateGroup={handleCreateGroup}
+                    contacts={contacts}
+                    currentUserId={currentUser.id}
+                    allUsers={allUniqueUsers}
+                />
+            )}
         </div>
     );
 };
