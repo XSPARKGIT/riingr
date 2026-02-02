@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { User } from '../types';
 import { 
     SettingsIcon, 
@@ -19,6 +19,7 @@ import {
     FolderIcon,
     StoreIcon,
 } from '../constants';
+import { updateUserProfile } from '../services/firestoreService';
 
 interface SettingsSidebarProps {
     user: User;
@@ -201,33 +202,108 @@ export const EditProfileSection: React.FC<{
     user: User;
     onBack: () => void;
     onLogout: () => void;
-}> = ({ user, onBack, onLogout }) => {
-    // Debug logging to see what user data is received
-    console.log('🔍 [EditProfileSection] Component rendered with user:', {
-        id: user?.id,
-        name: user?.name,
-        email: user?.email,
-        username: user?.username,
-        status: user?.status,
-        avatar: user?.avatar,
-    });
-
+    onProfileUpdate?: () => Promise<void>;
+}> = ({ user, onBack, onLogout, onProfileUpdate }) => {
     const nameParts = user.name ? user.name.split(' ') : [''];
     const [firstName, setFirstName] = useState(nameParts[0] || '');
     const [lastName, setLastName] = useState(nameParts.slice(1).join(' ') || '');
     const [bio, setBio] = useState(user.status || 'A few words about you');
+    const [isSaving, setIsSaving] = useState(false);
+    
+    // Use ref to store original values (doesn't trigger re-renders)
+    const originalValuesRef = useRef({
+        firstName: nameParts[0] || '',
+        lastName: nameParts.slice(1).join(' ') || '',
+        bio: user.status || 'A few words about you'
+    });
+
+    // Check if any changes have been made
+    const hasChanges = useMemo(() => {
+        return firstName !== originalValuesRef.current.firstName || 
+               lastName !== originalValuesRef.current.lastName || 
+               bio !== originalValuesRef.current.bio;
+    }, [firstName, lastName, bio]);
+
+    // Save changes to Firestore
+    const handleSave = async () => {
+        if (!hasChanges || isSaving) return;
+        
+        console.log('💾 [EditProfile] Saving profile changes...');
+        console.log('User ID:', user.id);
+        console.log('Current user object:', user);
+        
+        setIsSaving(true);
+        try {
+            const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
+            const updates = {
+                name: fullName,
+                status: bio.trim(),
+            };
+            
+            console.log('📤 [EditProfile] Sending updates:', updates);
+            
+            await updateUserProfile(user.id, updates);
+            
+            console.log('✅ [EditProfile] Profile updated successfully');
+            
+            // Refresh user profile in parent component
+            if (onProfileUpdate) {
+                await onProfileUpdate();
+            }
+            
+            // Update original values after successful save
+            originalValuesRef.current = {
+                firstName,
+                lastName,
+                bio
+            };
+            
+            // Show success toast
+            const toast = document.createElement('div');
+            toast.className = 'fixed top-20 left-1/2 -translate-x-1/2 bg-green-600 text-white px-6 py-3 rounded-full shadow-xl z-[9999] animate-in slide-in-from-top-2 duration-300';
+            toast.textContent = 'Profile updated successfully! ✓';
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.classList.add('animate-out', 'fade-out', 'slide-out-to-top-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 2000);
+            
+            // Navigate back after a short delay
+            setTimeout(() => onBack(), 500);
+        } catch (error) {
+            console.error('Error saving profile:', error);
+            
+            // Show error toast
+            const toast = document.createElement('div');
+            toast.className = 'fixed top-20 left-1/2 -translate-x-1/2 bg-red-600 text-white px-6 py-3 rounded-full shadow-xl z-[9999] animate-in slide-in-from-top-2 duration-300';
+            toast.textContent = 'Failed to update profile. Please try again.';
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.classList.add('animate-out', 'fade-out', 'slide-out-to-top-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
     // Update form fields when user prop changes
     useEffect(() => {
-        console.log('🔄 [EditProfileSection] User prop updated:', {
-            id: user?.id,
-            name: user?.name,
-            email: user?.email,
-        });
         const nameParts = user.name ? user.name.split(' ') : [''];
-        setFirstName(nameParts[0] || '');
-        setLastName(nameParts.slice(1).join(' ') || '');
-        setBio(user.status || 'A few words about you');
+        const newFirstName = nameParts[0] || '';
+        const newLastName = nameParts.slice(1).join(' ') || '';
+        const newBio = user.status || 'A few words about you';
+        
+        setFirstName(newFirstName);
+        setLastName(newLastName);
+        setBio(newBio);
+        
+        // Update ref without causing re-render
+        originalValuesRef.current = {
+            firstName: newFirstName,
+            lastName: newLastName,
+            bio: newBio
+        };
     }, [user.id, user.name, user.status]);
 
     return (
@@ -238,7 +314,17 @@ export const EditProfileSection: React.FC<{
                     <span>Back</span>
                 </button>
                 <h3 className="text-[15px] font-black text-slate-800 leading-tight">Edit Profile</h3>
-                <button onClick={onBack} className="text-green-600 font-black text-[15px] hover:opacity-70">Done</button>
+                <button 
+                    onClick={hasChanges ? handleSave : onBack}
+                    disabled={isSaving}
+                    className={`font-black text-[15px] transition-all ${
+                        hasChanges 
+                            ? 'bg-green-600 text-white px-4 py-2 rounded-full hover:bg-green-700 shadow-md disabled:opacity-50' 
+                            : 'text-green-600 hover:opacity-70'
+                    }`}
+                >
+                    {isSaving ? 'Saving...' : hasChanges ? 'Save' : 'Done'}
+                </button>
             </div>
 
             <div className="flex-1 overflow-y-auto touch-pan-y p-6 md:p-10 pb-20 min-h-0">

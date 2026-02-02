@@ -1018,6 +1018,24 @@ const App: React.FC = () => {
     const showChat = selectedConversationId !== null;
     const showSettingsDetail = settingsCategory !== null;
 
+    // Refresh user profile from Firestore
+    const refreshUserProfile = useCallback(async () => {
+        if (!currentUser?.id || currentUser.id === 'me') return;
+        
+        try {
+            console.log('🔄 [App.tsx] Refreshing user profile...');
+            const profile = await getUserProfile(currentUser.id);
+            if (profile) {
+                setCurrentUser(prev => (prev ? { ...prev, ...profile } : profile));
+                // Also update localStorage
+                localStorage.setItem(USER_KEY, JSON.stringify(profile));
+                console.log('✅ [App.tsx] User profile refreshed:', profile);
+            }
+        } catch (error) {
+            console.error('❌ [App.tsx] Error refreshing user profile:', error);
+        }
+    }, [currentUser?.id]);
+
     const renderSettingsDetail = () => {
         const onBack = () => handleSelectSettings(null);
         console.log('🔍 [App.tsx] Rendering settings detail, currentUser:', {
@@ -1027,7 +1045,7 @@ const App: React.FC = () => {
             category: settingsCategory,
         });
         switch (settingsCategory) {
-            case 'profile': return <EditProfileSection user={currentUser as User} onBack={onBack} onLogout={handleLogout} />;
+            case 'profile': return <EditProfileSection user={currentUser as User} onBack={onBack} onLogout={handleLogout} onProfileUpdate={refreshUserProfile} />;
             case 'general': return <GeneralSettingsView onBack={onBack} />;
             case 'notifications': return <NotificationsSettingsView onBack={onBack} />;
             case 'privacy': return <PrivacySettingsView onBack={onBack} />;

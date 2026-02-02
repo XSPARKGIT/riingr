@@ -67,14 +67,30 @@ export const updateUserProfile = async (
   updates: Partial<User>
 ): Promise<void> => {
   try {
-    const userRef = doc(db, 'users', userId);
+    console.log('🔧 [firestoreService] updateUserProfile called');
+    console.log('   userId:', userId);
+    console.log('   updates:', updates);
     
-    await updateDoc(userRef, {
+    const userRef = doc(db, 'users', userId);
+    console.log('   userRef path:', userRef.path);
+    
+    const updateData = {
       ...updates,
       updatedAt: serverTimestamp(),
-    });
+    };
+    
+    console.log('   Final update data:', updateData);
+    
+    await updateDoc(userRef, updateData);
+    
+    console.log('✅ [firestoreService] updateDoc completed successfully');
   } catch (error) {
-    console.error('Error updating user profile:', error);
+    console.error('❌ [firestoreService] Error updating user profile:', error);
+    console.error('   Error details:', {
+      code: (error as any)?.code,
+      message: (error as any)?.message,
+      name: (error as any)?.name,
+    });
     throw error;
   }
 };

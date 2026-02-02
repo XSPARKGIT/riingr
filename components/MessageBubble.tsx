@@ -166,6 +166,21 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                 )}
 
                 <div className={`${isSticker ? '' : isSystem ? '' : 'shadow-sm'} flex flex-col relative ${bubbleClasses}`}>
+                    {/* Reply Preview - Simple and constrained */}
+                    {replyToMessage && (
+                        <div 
+                            onClick={(e) => { e.stopPropagation(); onScrollToMessage?.(replyToMessage.id); }}
+                            className="m-2 mb-0 bg-black/5 rounded-lg p-2 border-l-2 border-green-500 cursor-pointer hover:bg-black/10 transition-colors"
+                        >
+                            <p className="text-[10px] font-bold opacity-70 uppercase truncate">
+                                {participants.find(p => p.id === replyToMessage.senderId)?.name || 'Unknown'}
+                            </p>
+                            <p className="text-xs italic opacity-80 truncate">
+                                {replyToMessage.text || (replyToMessage.imageUrl ? 'Photo' : 'Media')}
+                            </p>
+                        </div>
+                    )}
+                    
                     {/* Render Image */}
                     {message.imageUrl && (
                         isSticker ? (

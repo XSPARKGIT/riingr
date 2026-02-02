@@ -33,24 +33,10 @@ service cloud.firestore {
       allow create: if isAuthenticated() && request.auth.uid == userId;
       
       // Update rules:
-      // - Users can update their own profile fields
+      // - Users can update their own profile fields (name, status, avatar, etc.)
       // - Users can update their own mutedConversations array (for muting/unmuting conversations)
       // - Users can update their own conversationPreferences and blockedUsers arrays
-      allow update: if isAuthenticated() && request.auth.uid == userId && (
-        // Allow updating mutedConversations, conversationPreferences, blockedUsers
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'mutedConversations',
-          'conversationPreferences',
-          'blockedUsers',
-          'updatedAt'
-        ]) ||
-        // Allow updating other profile fields (but not these arrays mixed with others)
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-          'mutedConversations',
-          'conversationPreferences',
-          'blockedUsers'
-        ])
-      );
+      allow update: if isAuthenticated() && request.auth.uid == userId;
       
       allow delete: if isAuthenticated() && request.auth.uid == userId;
     }
