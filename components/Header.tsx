@@ -24,9 +24,9 @@ export const Header: React.FC<HeaderProps> = ({ onReset, isOnline = true, syncQu
     }, []);
 
     return (
-        <header className="flex-shrink-0 bg-white/80 backdrop-blur-sm border-b border-slate-200 shadow-sm z-50 pt-safe">
+        <header className="flex-shrink-0 bg-white/80 backdrop-blur-sm border-b border-slate-200 shadow-sm z-50 pt-safe relative">
             <div className="container mx-auto px-4">
-                <div className="flex items-center justify-between h-16">
+                <div className="flex items-center justify-between h-16 relative">
                     <div className="flex items-center space-x-3">
                         <Logo className="h-10 w-auto" />
                         {/* Connection and Sync Status Indicators */}
@@ -50,16 +50,22 @@ export const Header: React.FC<HeaderProps> = ({ onReset, isOnline = true, syncQu
                             </div>
                         ) : null}
                     </div>
-                    <div className="flex items-center relative" ref={menuRef}>
+                    <div className="flex items-center relative z-[10000]" ref={menuRef}>
                         <button 
                             onClick={() => setShowMenu(!showMenu)}
-                            className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                            className={`p-2 rounded-full transition-colors ${
+                                showMenu ? 'bg-slate-100' : 'hover:bg-gray-100'
+                            }`}
+                            aria-label="Menu"
                         >
-                            <MenuIcon className="h-6 w-6 text-slate-500" />
+                            <MenuIcon className="h-6 w-6 text-slate-600" />
                         </button>
 
                         {showMenu && (
-                            <div className="absolute right-0 top-12 bg-white border border-slate-100 shadow-xl rounded-xl py-2 w-48 z-50 animate-in fade-in zoom-in-95 duration-100">
+                            <div 
+                                className="absolute right-0 top-full mt-2 bg-white border-2 border-slate-300 shadow-2xl rounded-xl py-2 w-48 z-[9999]"
+                                style={{ minWidth: '192px' }}
+                            >
                                 <button 
                                     onClick={() => {
                                         onReset?.();
@@ -67,12 +73,14 @@ export const Header: React.FC<HeaderProps> = ({ onReset, isOnline = true, syncQu
                                     }}
                                     className="flex items-center w-full px-4 py-2.5 hover:bg-red-50 text-red-600 transition-colors text-left"
                                 >
-                                    <TrashIcon className="h-4 w-4 mr-3" />
+                                    <TrashIcon className="h-4 w-4 mr-3 flex-shrink-0" />
                                     <span className="text-sm font-medium">Reset All Data</span>
                                 </button>
-                                <div className="border-t border-slate-100 my-1"></div>
-                                <div className="px-4 py-2 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                                    Version 1.2.0
+                                <div className="border-t border-slate-200 my-1"></div>
+                                <div className="px-4 py-2.5">
+                                    <span className="text-xs text-slate-600 font-bold uppercase tracking-wider">
+                                        VERSION 1.0.0
+                                    </span>
                                 </div>
                             </div>
                         )}
