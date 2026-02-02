@@ -144,6 +144,9 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
+            // If there's existing text, move it to caption
+            const existingText = text.trim();
+            
             const reader = new FileReader();
             reader.onload = (event) => {
                 const base64 = event.target?.result as string;
@@ -164,6 +167,14 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                         }
                     });
                 }
+                
+                // Move existing text to caption and clear input
+                if (existingText) {
+                    setCaption(existingText);
+                    setText('');
+                    setMentions([]);
+                    setShowMentionList(false);
+                }
             };
             reader.readAsDataURL(file);
         }
@@ -177,12 +188,19 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             try {
                 const result = await onGenerateImage(prompt);
                 if (result) {
+                    // If there's existing text, use it as caption, otherwise use AI prompt
+                    const existingText = text.trim();
                     setStagedMedia({
                         type: 'image',
                         dataUrl: result,
                         isAI: true
                     });
-                    setCaption(`AI generated: ${prompt}`);
+                    setCaption(existingText || `AI generated: ${prompt}`);
+                    if (existingText) {
+                        setText('');
+                        setMentions([]);
+                        setShowMentionList(false);
+                    }
                 }
             } finally {
                 setIsGenerating(false);
@@ -191,13 +209,39 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     };
 
     const handleSelectGif = (url: string) => {
-        // Send GIF as image-only message using remote URL
-        onSendMessage(undefined, url);
+        // If there's existing text, stage it as an image with caption
+        const existingText = text.trim();
+        if (existingText) {
+            setStagedMedia({
+                type: 'image',
+                dataUrl: url
+            });
+            setCaption(existingText);
+            setText('');
+            setMentions([]);
+            setShowMentionList(false);
+        } else {
+            // Send GIF as image-only message using remote URL
+            onSendMessage(undefined, url);
+        }
     };
 
     const handleSelectSticker = (url: string) => {
-        // Send sticker as image-only message using remote URL
-        onSendMessage(undefined, url);
+        // If there's existing text, stage it as an image with caption
+        const existingText = text.trim();
+        if (existingText) {
+            setStagedMedia({
+                type: 'image',
+                dataUrl: url
+            });
+            setCaption(existingText);
+            setText('');
+            setMentions([]);
+            setShowMentionList(false);
+        } else {
+            // Send sticker as image-only message using remote URL
+            onSendMessage(undefined, url);
+        }
     };
 
     const handleSendLocation = () => {
