@@ -1,5 +1,5 @@
 
-export type ConversationNotificationLevel = 'all' | 'mentions' | 'silent';
+export type ConversationNotificationLevel = 'all' | 'mentions' | 'none';
 
 export type ConversationPreference = {
   conversationId: string;

@@ -264,8 +264,8 @@ export const GroupSettingsView: React.FC<GroupSettingsViewProps> = ({
             )}
           </div>
 
-          {/* Pending Members */}
-          {pendingMembers.length > 0 && (
+          {/* Pending Members - Admin only */}
+          {isAdmin && pendingMembers.length > 0 && (
             <div className="mt-4 bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
@@ -416,6 +416,11 @@ export const GroupSettingsView: React.FC<GroupSettingsViewProps> = ({
                   </button>
                 )}
               </div>
+              {!isAdmin && (
+                <div className="text-center py-4 text-xs text-slate-400 italic">
+                  Only admins can manage group members
+                </div>
+              )}
               <div className="space-y-3">
                 {conversation.participants.map(participant => {
                   const isParticipantAdmin = conversation.admins?.includes(participant.id);
@@ -447,84 +452,88 @@ export const GroupSettingsView: React.FC<GroupSettingsViewProps> = ({
                           </p>
                         </div>
                       </div>
-                      {isAdmin && (
-                        <div className="flex items-center gap-1 shrink-0">
-                          {canTransferAdmin && (
-                            <button
-                              onClick={() => onTransferAdmin(participant.id)}
-                              className="text-green-600 hover:text-green-700 p-2 hover:bg-green-50 rounded-full transition-all"
-                              title="Make admin"
-                            >
-                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                              </svg>
-                            </button>
-                          )}
-                          {canRemoveAdmin && (
-                            <button
-                              onClick={() => onRemoveAdmin(participant.id)}
-                              className="text-yellow-600 hover:text-yellow-700 p-2 hover:bg-yellow-50 rounded-full transition-all"
-                              title="Remove admin"
-                            >
-                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                              </svg>
-                            </button>
-                          )}
-                          {canRemove && (
-                            <button
-                              onClick={() => handleRemoveMemberClick(participant)}
-                              className="text-red-500 hover:text-red-600 p-2 hover:bg-red-50 rounded-full transition-all"
-                              title="Remove member"
-                            >
-                              <TrashIcon className="h-4 w-4" />
-                            </button>
-                          )}
-                          {participant.id !== currentUserId && (
-                            <div className="flex flex-col gap-1 ml-1">
+                      <div className="flex items-center gap-1 shrink-0">
+                        {/* Admin-only actions */}
+                        {isAdmin && (
+                          <>
+                            {canTransferAdmin && (
                               <button
-                                onClick={async () => {
-                                  const confirmed = window.confirm(
-                                    `Block ${participant.name || participant.username || 'this user'}? You won't receive messages from them.`
-                                  );
-                                  if (!confirmed) return;
-                                  try {
-                                    await blockUser(currentUserId, participant.id);
-                                    alert('User blocked');
-                                  } catch (error) {
-                                    console.error('Error blocking user:', error);
-                                    alert('Could not block user. Please try again.');
-                                  }
-                                }}
-                                className="text-[10px] font-bold text-slate-400 hover:text-red-500 hover:bg-red-50 px-2 py-0.5 rounded-full transition-colors"
+                                onClick={() => onTransferAdmin(participant.id)}
+                                className="text-green-600 hover:text-green-700 p-2 hover:bg-green-50 rounded-full transition-all"
+                                title="Make admin"
                               >
-                                Block
+                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                </svg>
                               </button>
+                            )}
+                            {canRemoveAdmin && (
                               <button
-                                onClick={async () => {
-                                  const reason = window.prompt(
-                                    `Report ${participant.name || participant.username || 'this user'}?\n\nDescribe the issue:`
-                                  );
-                                  if (!reason) return;
-                                  try {
-                                    await reportUser(currentUserId, participant.id, {
-                                      conversationId: conversation.id,
-                                      reason,
-                                    });
-                                    alert('Report submitted');
-                                  } catch (error) {
-                                    console.error('Error reporting user:', error);
-                                    alert('Could not submit report. Please try again.');
-                                  }
-                                }}
-                                className="text-[10px] font-bold text-slate-400 hover:text-amber-600 hover:bg-amber-50 px-2 py-0.5 rounded-full transition-colors"
+                                onClick={() => onRemoveAdmin(participant.id)}
+                                className="text-yellow-600 hover:text-yellow-700 p-2 hover:bg-yellow-50 rounded-full transition-all"
+                                title="Remove admin"
                               >
-                                Report
+                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
                               </button>
-                            </div>
-                          )}
-                        </div>
-                      )}
+                            )}
+                            {canRemove && (
+                              <button
+                                onClick={() => handleRemoveMemberClick(participant)}
+                                className="text-red-500 hover:text-red-600 p-2 hover:bg-red-50 rounded-full transition-all"
+                                title="Remove member"
+                              >
+                                <TrashIcon className="h-4 w-4" />
+                              </button>
+                            )}
+                          </>
+                        )}
+                        {/* Block and Report - available to all members */}
+                        {participant.id !== currentUserId && (
+                          <div className="flex flex-col gap-1 ml-1">
+                            <button
+                              onClick={async () => {
+                                const confirmed = window.confirm(
+                                  `Block ${participant.name || participant.username || 'this user'}? You won't receive messages from them.`
+                                );
+                                if (!confirmed) return;
+                                try {
+                                  await blockUser(currentUserId, participant.id);
+                                  alert('User blocked');
+                                } catch (error) {
+                                  console.error('Error blocking user:', error);
+                                  alert('Could not block user. Please try again.');
+                                }
+                              }}
+                              className="text-[10px] font-bold text-slate-400 hover:text-red-500 hover:bg-red-50 px-2 py-0.5 rounded-full transition-colors"
+                            >
+                              Block
+                            </button>
+                            <button
+                              onClick={async () => {
+                                const reason = window.prompt(
+                                  `Report ${participant.name || participant.username || 'this user'}?\n\nDescribe the issue:`
+                                );
+                                if (!reason) return;
+                                try {
+                                  await reportUser(currentUserId, participant.id, {
+                                    conversationId: conversation.id,
+                                    reason,
+                                  });
+                                  alert('Report submitted');
+                                } catch (error) {
+                                  console.error('Error reporting user:', error);
+                                  alert('Could not submit report. Please try again.');
+                                }
+                              }}
+                              className="text-[10px] font-bold text-slate-400 hover:text-amber-600 hover:bg-amber-50 px-2 py-0.5 rounded-full transition-colors"
+                            >
+                              Report
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
@@ -709,34 +718,60 @@ export const GroupSettingsView: React.FC<GroupSettingsViewProps> = ({
                 )}
               </button>
 
-              {/* Simple theme controls */}
-              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
-                <div className="flex flex-col">
-                  <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
-                    Theme
-                  </span>
-                  <span className="text-[13px] font-bold text-slate-800">
-                    Accent & background
-                  </span>
+              {/* Simple theme controls - Admin only */}
+              {isAdmin && (
+                <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
+                  <div className="flex flex-col">
+                    <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
+                      Theme
+                    </span>
+                    <span className="text-[13px] font-bold text-slate-800">
+                      Accent & background
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    {['#16a34a', '#0ea5e9', '#e11d48'].map((color) => {
+                      const colorNames: Record<string, string> = {
+                        '#16a34a': 'Green',
+                        '#0ea5e9': 'Blue',
+                        '#e11d48': 'Red'
+                      };
+                      return (
+                        <button
+                          key={color}
+                          onClick={async () => {
+                            try {
+                              await onUpdate({
+                                theme: {
+                                  ...(conversation.theme || {}),
+                                  accentColor: color,
+                                },
+                              });
+                              // Show toast notification
+                              const toast = document.createElement('div');
+                              toast.className = 'fixed top-20 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-full shadow-xl z-[9999] animate-in slide-in-from-top-2 duration-300';
+                              toast.textContent = `Theme changed to ${colorNames[color]}! 🎨`;
+                              document.body.appendChild(toast);
+                              setTimeout(() => {
+                                toast.classList.add('animate-out', 'fade-out', 'slide-out-to-top-2');
+                                setTimeout(() => toast.remove(), 300);
+                              }, 2000);
+                            } catch (error) {
+                              console.error('Error updating theme:', error);
+                              alert('Could not update theme. Please try again.');
+                            }
+                          }}
+                          className={`h-6 w-6 rounded-full border border-white shadow-sm hover:ring-2 hover:ring-slate-200 transition-all ${
+                            conversation.theme?.accentColor === color ? 'ring-2 ring-slate-400' : ''
+                          }`}
+                          style={{ backgroundColor: color }}
+                          title={`Change theme to ${colorNames[color]}`}
+                        />
+                      );
+                    })}
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  {['#16a34a', '#0ea5e9', '#e11d48'].map((color) => (
-                    <button
-                      key={color}
-                      onClick={() =>
-                        onUpdate({
-                          theme: {
-                            ...(conversation.theme || {}),
-                            accentColor: color,
-                          },
-                        })
-                      }
-                      className="h-6 w-6 rounded-full border border-white shadow-sm hover:ring-2 hover:ring-slate-200 transition-all"
-                      style={{ backgroundColor: color }}
-                    />
-                  ))}
-                </div>
-              </div>
+              )}
 
               <button
                 onClick={onLeaveGroup}
