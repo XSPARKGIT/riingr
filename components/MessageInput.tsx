@@ -433,6 +433,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                         ref={textareaRef}
                         rows={1}
                         value={text}
+                        className="relative w-full bg-transparent border-none py-2 text-[14px] sm:text-[15px] focus:outline-none resize-none max-h-32 text-transparent caret-slate-800 disabled:opacity-50 min-w-0"
                         onChange={(e) => {
                             const value = e.target.value;
                             setText(value);
@@ -467,7 +468,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                             }
                         }}
                         placeholder=""
-                        className="relative w-full bg-transparent border-none py-2 text-[14px] sm:text-[15px] focus:outline-none resize-none max-h-32 text-transparent caret-slate-800 disabled:opacity-50"
+                        className="relative w-full bg-transparent border-none py-2 text-[14px] sm:text-[15px] focus:outline-none resize-none max-h-32 text-transparent caret-slate-800 disabled:opacity-50 min-w-0"
                         style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}
                         disabled={isLoading || isGenerating}
                     />

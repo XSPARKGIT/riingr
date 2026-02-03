@@ -181,14 +181,14 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                     {replyToMessage && (
                         <div 
                             onClick={(e) => { e.stopPropagation(); onScrollToMessage?.(replyToMessage.id); }}
-                            className="m-2 mb-0 bg-black/5 rounded-lg p-2 border-l-2 cursor-pointer hover:bg-black/10 transition-colors"
+                            className="m-2 mb-0 bg-black/5 rounded-lg p-2 border-l-2 cursor-pointer hover:bg-black/10 transition-colors min-w-0 max-w-full overflow-hidden"
                             style={accentBorderStyle}
                         >
                             <p className="text-[10px] font-bold opacity-70 uppercase truncate">
                                 {participants.find(p => p.id === replyToMessage.senderId)?.name || 'Unknown'}
                             </p>
-                            <p className="text-xs italic opacity-80 truncate">
-                                {replyToMessage.text || (replyToMessage.imageUrl ? 'Photo' : 'Media')}
+                            <p className="text-xs italic opacity-80 truncate break-words overflow-wrap-anywhere">
+                                {replyToMessage.text || (replyToMessage.imageUrl ? 'Photo' : replyToMessage.poll ? 'Poll' : replyToMessage.file ? 'File' : 'Media')}
                             </p>
                         </div>
                     )}

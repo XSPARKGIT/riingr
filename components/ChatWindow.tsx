@@ -485,7 +485,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                         // Check if message is from current user (support both 'me' for legacy and actual user ID)
                         const isOwnMessage = msg.senderId === 'me' || msg.senderId === currentUserId;
                         // Simple lookup for reply message - only for DMs
-                        const replyToMessage = conversation.type !== 'group' && msg.replyToId 
+                        const replyToMessage = msg.replyToId 
                             ? messageMapRef.current.get(msg.replyToId) 
                             : undefined;
                         return (
@@ -494,19 +494,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                     message={msg} 
                                     isOwnMessage={isOwnMessage} 
                                     onReply={() => {
-                                        if (conversation.type === 'group') {
-                                            // Show "coming soon" toast for groups
-                                            const toast = document.createElement('div');
-                                            toast.className = 'fixed top-20 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-full shadow-xl z-[9999] animate-in slide-in-from-top-2 duration-300';
-                                            toast.textContent = 'Reply in groups coming soon! 🚀';
-                                            document.body.appendChild(toast);
-                                            setTimeout(() => {
-                                                toast.classList.add('animate-out', 'fade-out', 'slide-out-to-top-2');
-                                                setTimeout(() => toast.remove(), 300);
-                                            }, 2000);
-                                        } else {
-                                            setReplyingTo(msg);
-                                        }
+                                        setReplyingTo(msg);
                                     }}
                                     onScrollToMessage={scrollToMessage}
                                     replyToMessage={replyToMessage}
@@ -542,16 +530,16 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 </div>
             </div>
             
-            <div className="flex flex-col bg-white/95 backdrop-blur-md z-20 border-t border-slate-100 pb-safe shrink-0">
-                {/* Reply Preview Bar - Only for DMs */}
-                {replyingTo && conversation.type !== 'group' && (
-                    <div className="px-4 py-2 border-b border-slate-100 flex items-center gap-3 bg-slate-50/50">
+            <div className="flex flex-col bg-white/95 backdrop-blur-md z-20 border-t border-slate-100 pb-safe shrink-0 min-w-0">
+                {/* Reply Preview Bar */}
+                {replyingTo && (
+                    <div className="px-3 sm:px-4 py-2 border-b border-slate-100 flex items-center gap-3 bg-slate-50/50 min-w-0 max-w-full">
                         <div className="w-1 h-10 bg-green-500 rounded-full shrink-0" />
-                        <div className="flex-1 min-w-0">
+                        <div className="flex-1 min-w-0 overflow-hidden">
                             <p className="text-[11px] font-bold text-green-600 uppercase tracking-wide truncate">
                                 Replying to {participantsMapRef.current.get(replyingTo.senderId)?.name || 'Unknown'}
                             </p>
-                            <p className="text-xs text-slate-500 truncate">
+                            <p className="text-xs text-slate-500 truncate break-words overflow-wrap-anywhere">
                                 {replyingTo.text || (replyingTo.imageUrl ? 'Photo' : replyingTo.poll ? 'Poll' : replyingTo.file ? 'File' : 'Media')}
                             </p>
                         </div>
@@ -666,19 +654,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                     message={contextMenu.msg}
                     onClose={() => setContextMenu(null)}
                     onReply={(msg) => {
-                        if (conversation.type === 'group') {
-                            // Show "coming soon" toast for groups
-                            const toast = document.createElement('div');
-                            toast.className = 'fixed top-20 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-full shadow-xl z-[9999] animate-in slide-in-from-top-2 duration-300';
-                            toast.textContent = 'Reply in groups coming soon! 🚀';
-                            document.body.appendChild(toast);
-                            setTimeout(() => {
-                                toast.classList.add('animate-out', 'fade-out', 'slide-out-to-top-2');
-                                setTimeout(() => toast.remove(), 300);
-                            }, 2000);
-                        } else {
-                            setReplyingTo(msg);
-                        }
+                        setReplyingTo(msg);
+                        setContextMenu(null);
                     }}
                     onDelete={onDeleteMessage}
                     onCopy={(t) => navigator.clipboard.writeText(t)}
