@@ -62,13 +62,11 @@ export const initConnectionListener = (
 const handleOnline = () => {
   currentStatus = true;
   connectionCallbacks.forEach(callback => callback(true));
-  console.log('🌐 Connection restored');
 };
 
 const handleOffline = () => {
   currentStatus = false;
   connectionCallbacks.forEach(callback => callback(false));
-  console.log('📴 Connection lost');
 };
 
 /**

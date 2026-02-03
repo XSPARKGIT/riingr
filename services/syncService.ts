@@ -251,7 +251,6 @@ const syncMessageToFirestore = async (
   // Check for duplicates
   const exists = await messageExistsInFirestore(conversationId, message.id);
   if (exists) {
-    console.log(`Message ${message.id} already exists in Firestore, skipping`);
     return;
   }
 
@@ -824,7 +823,6 @@ export const syncAllFromFirestore = async (userId: string): Promise<void> => {
 
   // Check if global sync is already in progress
   if (!acquireGlobalSyncLock()) {
-    console.log('⏸️ Sync already in progress, skipping duplicate call');
     return;
   }
 
@@ -870,25 +868,12 @@ const syncConversationsFromFirestore = async (userId: string): Promise<void> => 
   for (const docSnap of snapshot.docs) {
     const data = docSnap.data();
     
-    console.log('🔍 [syncConversations] Processing conversation:', {
-      conversationId: docSnap.id,
-      participantIds: data.participants,
-      currentUserId: userId,
-    });
-    
     // Fetch participant details
     const participants = await Promise.all(
       (data.participants || []).map(async (participantId: string) => {
         const userDoc = await getDoc(doc(db, 'users', participantId));
         if (userDoc.exists()) {
           const userData = userDoc.data();
-          console.log('✅ [syncConversations] Fetched participant data:', {
-            conversationId: docSnap.id,
-            participantId,
-            name: userData.name,
-            email: userData.email,
-            username: userData.username,
-          });
           // Properly map Firestore data to User type
           return {
             id: participantId,
@@ -902,7 +887,7 @@ const syncConversationsFromFirestore = async (userId: string): Promise<void> => 
             profileComplete: userData.profileComplete,
           } as User;
         }
-        console.error('❌ [syncConversations] User document not found:', {
+        console.error('User document not found:', {
           conversationId: docSnap.id,
           participantId,
         });
@@ -917,10 +902,6 @@ const syncConversationsFromFirestore = async (userId: string): Promise<void> => 
       })
     );
 
-    console.log('📋 [syncConversations] All participants fetched:', {
-      conversationId: docSnap.id,
-      participants: participants.map(p => ({ id: p.id, name: p.name, email: p.email })),
-    });
 
     const conversation: Conversation = {
       id: docSnap.id,

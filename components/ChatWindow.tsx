@@ -697,8 +697,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                 setMentionMenu(null);
                                 if (onStartPrivateConversation) {
                                     onStartPrivateConversation(mentionMenu.user);
-                                } else {
-                                    console.log('Start private conversation with', mentionMenu.user);
                                 }
                             }}
                         >

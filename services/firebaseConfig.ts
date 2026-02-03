@@ -24,8 +24,6 @@ if (import.meta.env.DEV) {
                          firebaseConfig.projectId !== "YOUR_PROJECT_ID";
   
   if (hasValidConfig) {
-    console.log('✅ Firebase config loaded from environment variables');
-    console.log(`📦 Project: ${firebaseConfig.projectId}`);
   } else {
     console.warn('⚠️  Firebase config appears to be using placeholder values.');
     console.warn('   Make sure your .env file has all VITE_FIREBASE_* variables set.');
@@ -38,9 +36,8 @@ let app: any = undefined;
 let initError: any = null;
 try {
   app = initializeApp(firebaseConfig);
-  console.log('✅ Firebase initialized successfully');
 } catch (error: any) {
-  console.error('❌ Firebase initialization failed:', error.message);
+  console.error('Firebase initialization failed:', error.message);
   console.warn('⚠️  App will run in offline-only mode without Firebase');
   initError = error;
   // Don't throw - allow app to run in offline mode

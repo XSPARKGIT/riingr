@@ -228,10 +228,6 @@ export const EditProfileSection: React.FC<{
     const handleSave = async () => {
         if (!hasChanges || isSaving) return;
         
-        console.log('💾 [EditProfile] Saving profile changes...');
-        console.log('User ID:', user.id);
-        console.log('Current user object:', user);
-        
         setIsSaving(true);
         try {
             const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
@@ -240,11 +236,7 @@ export const EditProfileSection: React.FC<{
                 status: bio.trim(),
             };
             
-            console.log('📤 [EditProfile] Sending updates:', updates);
-            
             await updateUserProfile(user.id, updates);
-            
-            console.log('✅ [EditProfile] Profile updated successfully');
             
             // Refresh user profile in parent component
             if (onProfileUpdate) {

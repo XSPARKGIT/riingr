@@ -7,6 +7,7 @@ import { GroupAvatarPicker } from './GroupAvatarPicker';
 import { EditDescriptionModal } from './EditDescriptionModal';
 import { MuteOptionsModal } from './MuteOptionsModal';
 import { approvePendingMember, rejectPendingMember, blockUser, reportUser, createGroupInviteLink, getGroupInviteLinks, revokeInviteLink, regenerateInviteLink } from '../services/firestoreService';
+import { toast } from '../utils/toast';
 
 interface GroupSettingsViewProps {
   conversation: Conversation;
@@ -100,10 +101,10 @@ export const GroupSettingsView: React.FC<GroupSettingsViewProps> = ({
     try {
       await revokeInviteLink(token);
       await loadInviteLinks();
-      alert('Invite link revoked');
+      toast.success('Invite link revoked');
     } catch (error) {
       console.error('Error revoking invite link:', error);
-      alert('Could not revoke invite link. Please try again.');
+      toast.error('Could not revoke invite link. Please try again.');
     }
   };
   
@@ -118,13 +119,14 @@ export const GroupSettingsView: React.FC<GroupSettingsViewProps> = ({
       await loadInviteLinks();
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(url);
-        alert('New invite link created and copied to clipboard.');
+        toast.success('New invite link created and copied to clipboard');
       } else {
         window.prompt('New invite link (copy and share):', url);
+        toast.info('New invite link created');
       }
     } catch (error) {
       console.error('Error regenerating invite link:', error);
-      alert('Could not regenerate invite link. Please try again.');
+      toast.error('Could not regenerate invite link. Please try again.');
     } finally {
       setIsGeneratingInvite(false);
     }
@@ -207,13 +209,14 @@ export const GroupSettingsView: React.FC<GroupSettingsViewProps> = ({
       setInviteLink(url);
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(url);
-        alert('Invite link created and copied to clipboard.');
+        toast.success('Invite link created and copied to clipboard');
       } else {
         window.prompt('Invite link (copy and share):', url);
+        toast.info('Invite link created');
       }
     } catch (error) {
       console.error('Error creating invite link:', error);
-      alert('Could not create invite link. Please try again.');
+      toast.error('Could not create invite link. Please try again.');
     } finally {
       setIsGeneratingInvite(false);
     }
@@ -303,10 +306,10 @@ export const GroupSettingsView: React.FC<GroupSettingsViewProps> = ({
                           onClick={async () => {
                             try {
                               await approvePendingMember(conversation.id, member.id, currentUserId);
-                              alert('Member approved');
+                              toast.success('Member approved');
                             } catch (error) {
                               console.error('Error approving member:', error);
-                              alert('Could not approve member. Please try again.');
+                              toast.error('Could not approve member. Please try again.');
                             }
                           }}
                           className="px-3 py-1.5 rounded-full bg-green-600 text-white text-[11px] font-black uppercase tracking-widest hover:bg-green-700 transition-colors"
@@ -321,10 +324,10 @@ export const GroupSettingsView: React.FC<GroupSettingsViewProps> = ({
                             if (!confirmed) return;
                             try {
                               await rejectPendingMember(conversation.id, member.id, currentUserId);
-                              alert('Member rejected');
+                              toast.success('Member rejected');
                             } catch (error) {
                               console.error('Error rejecting member:', error);
-                              alert('Could not reject member. Please try again.');
+                              toast.error('Could not reject member. Please try again.');
                             }
                           }}
                           className="px-3 py-1.5 rounded-full bg-slate-100 text-[11px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-200 transition-colors"
@@ -500,10 +503,10 @@ export const GroupSettingsView: React.FC<GroupSettingsViewProps> = ({
                                 if (!confirmed) return;
                                 try {
                                   await blockUser(currentUserId, participant.id);
-                                  alert('User blocked');
+                                  toast.success('User blocked');
                                 } catch (error) {
                                   console.error('Error blocking user:', error);
-                                  alert('Could not block user. Please try again.');
+                                  toast.error('Could not block user. Please try again.');
                                 }
                               }}
                               className="text-[10px] font-bold text-slate-400 hover:text-red-500 hover:bg-red-50 px-2 py-0.5 rounded-full transition-colors"
@@ -521,10 +524,10 @@ export const GroupSettingsView: React.FC<GroupSettingsViewProps> = ({
                                     conversationId: conversation.id,
                                     reason,
                                   });
-                                  alert('Report submitted');
+                                  toast.success('Report submitted');
                                 } catch (error) {
                                   console.error('Error reporting user:', error);
-                                  alert('Could not submit report. Please try again.');
+                                  toast.error('Could not submit report. Please try again.');
                                 }
                               }}
                               className="text-[10px] font-bold text-slate-400 hover:text-amber-600 hover:bg-amber-50 px-2 py-0.5 rounded-full transition-colors"
@@ -567,13 +570,14 @@ export const GroupSettingsView: React.FC<GroupSettingsViewProps> = ({
                           await loadInviteLinks();
                           if (navigator.clipboard && navigator.clipboard.writeText) {
                             await navigator.clipboard.writeText(url);
-                            alert('Invite link created and copied to clipboard.');
+                            toast.success('Invite link created and copied to clipboard');
                           } else {
                             window.prompt('Invite link (copy and share):', url);
+                            toast.info('Invite link created');
                           }
                         } catch (error) {
                           console.error('Error creating invite link:', error);
-                          alert('Could not create invite link. Please try again.');
+                          toast.error('Could not create invite link. Please try again.');
                         } finally {
                           setIsGeneratingInvite(false);
                         }
@@ -632,7 +636,7 @@ export const GroupSettingsView: React.FC<GroupSettingsViewProps> = ({
                                 onClick={async () => {
                                   if (navigator.clipboard && navigator.clipboard.writeText) {
                                     await navigator.clipboard.writeText(url);
-                                    alert('Link copied to clipboard');
+                                    toast.success('Link copied to clipboard');
                                   } else {
                                     window.prompt('Invite link (copy and share):', url);
                                   }
@@ -758,7 +762,7 @@ export const GroupSettingsView: React.FC<GroupSettingsViewProps> = ({
                               }, 2000);
                             } catch (error) {
                               console.error('Error updating theme:', error);
-                              alert('Could not update theme. Please try again.');
+                              toast.error('Could not update theme. Please try again.');
                             }
                           }}
                           className={`h-6 w-6 rounded-full border border-white shadow-sm hover:ring-2 hover:ring-slate-200 transition-all ${

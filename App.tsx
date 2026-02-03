@@ -187,17 +187,9 @@ const App: React.FC = () => {
         const loadProfile = async () => {
             setIsProfileLoading(true);
             try {
-                console.log('🔍 [App.tsx] Loading profile for user ID:', currentUser.id);
                 const profile = await getUserProfile(currentUser.id);
-                console.log('✅ [App.tsx] Profile loaded from Firestore:', {
-                    id: profile?.id,
-                    name: profile?.name,
-                    email: profile?.email,
-                    username: profile?.username,
-                });
                 if (profile && isActive) {
                     setCurrentUser(prev => (prev ? { ...prev, ...profile } : profile));
-                    console.log('✅ [App.tsx] currentUser updated with profile data');
                 }
             } catch (error) {
                 console.error('Error loading user profile:', error);
@@ -256,7 +248,6 @@ const App: React.FC = () => {
             unsubscribeConnection = initConnectionListener(async (online) => {
                 setIsOnline(online);
                 if (online) {
-                    console.log('🌐 Online - syncing data...');
                     // Trigger sync when connection restored
                     await syncAllFromFirestore(currentUser.id).catch(console.error);
                     
@@ -265,8 +256,6 @@ const App: React.FC = () => {
                     if (currentConversationId) {
                         await refreshMessageSyncStatus(currentConversationId);
                     }
-                } else {
-                    console.log('📴 Offline - using local data');
                 }
             });
 
@@ -879,28 +868,12 @@ const App: React.FC = () => {
             return;
         }
 
-        // Verify currentUser.id matches auth UID (for debugging)
-        if (currentUser?.id && currentUser.id !== 'me' && currentUser.id !== authUserId) {
-            console.warn('⚠️ User ID mismatch:', { 
-                currentUserId: currentUser.id, 
-                authUserId 
-            });
-        }
-
         // Validate user IDs
         if (!authUserId || !user.id) {
-            console.error('❌ Invalid user IDs:', { authUserId, contactId: user.id });
+            console.error('Invalid user IDs:', { authUserId, contactId: user.id });
             alert('Invalid user information. Please try again.');
             return;
         }
-
-        // Debug logging
-        console.log('🔍 Starting conversation with contact:', {
-            authUserId,
-            contactId: user.id,
-            contactName: user.name,
-            isAuthenticated: !!firebaseUser
-        });
 
         try {
             // Get or create conversation in Firestore using Firebase auth UID
@@ -1028,7 +1001,6 @@ const App: React.FC = () => {
             setSettingsCategory(null);
             setReplyingTo(null);
             
-            console.log('✅ Group created successfully:', groupId);
         } catch (error) {
             console.error('Error creating group:', error);
             throw error; // Re-throw to let modal handle the error
@@ -1203,27 +1175,19 @@ const App: React.FC = () => {
         if (!currentUser?.id || currentUser.id === 'me') return;
         
         try {
-            console.log('🔄 [App.tsx] Refreshing user profile...');
             const profile = await getUserProfile(currentUser.id);
             if (profile) {
                 setCurrentUser(prev => (prev ? { ...prev, ...profile } : profile));
                 // Also update localStorage
                 localStorage.setItem(USER_KEY, JSON.stringify(profile));
-                console.log('✅ [App.tsx] User profile refreshed:', profile);
             }
         } catch (error) {
-            console.error('❌ [App.tsx] Error refreshing user profile:', error);
+            console.error('Error refreshing user profile:', error);
         }
     }, [currentUser?.id]);
 
     const renderSettingsDetail = () => {
         const onBack = () => handleSelectSettings(null);
-        console.log('🔍 [App.tsx] Rendering settings detail, currentUser:', {
-            id: currentUser?.id,
-            name: currentUser?.name,
-            email: currentUser?.email,
-            category: settingsCategory,
-        });
         switch (settingsCategory) {
             case 'profile': return <EditProfileSection user={currentUser as User} onBack={onBack} onLogout={handleLogout} onProfileUpdate={refreshUserProfile} />;
             case 'general': return <GeneralSettingsView onBack={onBack} />;

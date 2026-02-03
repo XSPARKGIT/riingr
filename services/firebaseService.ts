@@ -62,8 +62,8 @@ export const signInWithEmail = async (
     }
     
     throw new Error(error.message || 'Failed to sign in.');
-        }
-    };
+  }
+};
 
 /**
  * Logout user
@@ -108,13 +108,14 @@ export const sendPasswordReset = async (email: string): Promise<void> => {
 
 /**
  * Send message to Firebase (for future cloud storage integration)
+ * Note: This is a placeholder. Message storage is handled by syncService.ts
  */
 export const sendMessageToCloud = async (
   convoId: string, 
   message: Partial<Message>
 ): Promise<void> => {
-  // TODO: Implement Firebase Firestore integration for message storage
-  console.info("Message saved to Firebase (to be implemented)");
+  // Message storage is handled by syncService.ts via Firestore
+  // This function is kept for backward compatibility
 };
 
 // Export auth for direct use if needed

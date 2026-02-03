@@ -52,9 +52,8 @@ export const createUserProfile = async (
       lastSeen: serverTimestamp(),
     }, { merge: true });
     
-    console.log('✅ User profile created in Firestore');
   } catch (error) {
-    console.error('❌ Error creating user profile:', error);
+    console.error('Error creating user profile:', error);
     throw error;
   }
 };
@@ -67,30 +66,16 @@ export const updateUserProfile = async (
   updates: Partial<User>
 ): Promise<void> => {
   try {
-    console.log('🔧 [firestoreService] updateUserProfile called');
-    console.log('   userId:', userId);
-    console.log('   updates:', updates);
-    
     const userRef = doc(db, 'users', userId);
-    console.log('   userRef path:', userRef.path);
     
     const updateData = {
       ...updates,
       updatedAt: serverTimestamp(),
     };
     
-    console.log('   Final update data:', updateData);
-    
     await updateDoc(userRef, updateData);
-    
-    console.log('✅ [firestoreService] updateDoc completed successfully');
   } catch (error) {
-    console.error('❌ [firestoreService] Error updating user profile:', error);
-    console.error('   Error details:', {
-      code: (error as any)?.code,
-      message: (error as any)?.message,
-      name: (error as any)?.name,
-    });
+    console.error('Error updating user profile:', error);
     throw error;
   }
 };
@@ -270,7 +255,6 @@ export const addContact = async (
       updatedAt: serverTimestamp(),
     });
     
-    console.log('✅ Contact added successfully');
   } catch (error) {
     console.error('Error adding contact:', error);
     throw error;
@@ -394,16 +378,6 @@ export const getOrCreateConversation = async (
       throw new Error('Authentication error: Your user ID is not in the participants list.');
     }
     
-    // Debug logging
-    console.log('🔍 Creating conversation:', {
-      authUid: currentAuthUser.uid,
-      userId1: trimmedId1,
-      userId2: trimmedId2,
-      sortedIds,
-      conversationId,
-      authUidInParticipants: sortedIds.includes(currentAuthUser.uid)
-    });
-    
     const conversationRef = doc(db, 'conversations', conversationId);
     
     // Try to read the conversation, but if it doesn't exist or we don't have permission,
@@ -415,7 +389,6 @@ export const getOrCreateConversation = async (
     } catch (readError: any) {
       // If read fails (document doesn't exist or permission denied), 
       // we'll try to create it - this is expected for new conversations
-      console.log('📖 Conversation read check:', readError.code === 'permission-denied' ? 'Permission denied (document may not exist)' : readError.message);
     }
     
     if (!conversationExists) {
@@ -424,7 +397,7 @@ export const getOrCreateConversation = async (
       
       // Double-check auth UID is in participants
       if (!participantsArray.includes(currentAuthUser.uid)) {
-        console.error('❌ CRITICAL: Auth UID not in participants array before creation!', {
+        console.error('CRITICAL: Auth UID not in participants array before creation!', {
           authUid: currentAuthUser.uid,
           participants: participantsArray
         });
@@ -439,39 +412,22 @@ export const getOrCreateConversation = async (
         updatedAt: serverTimestamp(),
       };
       
-      // Log the exact data structure
-      console.log('📝 Creating conversation with data:', {
-        type: conversationData.type,
-        participants: conversationData.participants,
-        participantsType: typeof conversationData.participants,
-        participantsIsArray: Array.isArray(conversationData.participants),
-        participantsLength: conversationData.participants.length,
-        authUid: currentAuthUser.uid,
-        authUidInParticipants: conversationData.participants.includes(currentAuthUser.uid),
-        authUidType: typeof currentAuthUser.uid,
-        participantTypes: conversationData.participants.map(p => typeof p)
-      });
-      
       try {
         await setDoc(conversationRef, conversationData);
-        console.log('✅ Conversation created:', conversationId);
       } catch (createError: any) {
         // If creation fails with "already exists" error, the conversation was created
         // by another client between our check and creation attempt
         if (createError.code === 'permission-denied') {
-          console.error('❌ Permission denied creating conversation. Auth UID:', currentAuthUser.uid, 'Participants:', sortedIds);
+          console.error('Permission denied creating conversation. Auth UID:', currentAuthUser.uid, 'Participants:', sortedIds);
           throw new Error('Permission denied: Unable to create conversation. Please ensure you are logged in and try again.');
         }
         throw createError;
       }
-    } else {
-      console.log('✅ Conversation already exists:', conversationId);
     }
     
     return conversationId;
   } catch (error) {
-    console.error('❌ Error creating/getting conversation:', error);
-    console.error('User IDs:', { userId1, userId2 });
+    console.error('Error creating/getting conversation:', error);
     throw error;
   }
 };
@@ -519,7 +475,6 @@ export const createGroupConversation = async (
     
     await setDoc(conversationRef, conversationData);
     
-    console.log('✅ Group conversation created:', groupId);
     return groupId;
   } catch (error) {
     console.error('Error creating group conversation:', error);
@@ -624,7 +579,6 @@ export const updateGroupConversation = async (
       await createSystemMessage(groupId, 'Group description updated');
     }
     
-    console.log('✅ Group conversation updated:', groupId);
   } catch (error) {
     console.error('Error updating group conversation:', error);
     throw error;
@@ -713,7 +667,6 @@ export const addMemberToGroup = async (
     // Create system message
     await createSystemMessage(groupId, `${userName} was added to the group`);
     
-    console.log('✅ Member added to group:', { groupId, userId });
   } catch (error) {
     console.error('Error adding member to group:', error);
     throw error;
@@ -777,7 +730,6 @@ export const removeMemberFromGroup = async (
     // Create system message
     await createSystemMessage(groupId, `${userName} was removed from the group`);
     
-    console.log('✅ Member removed from group:', { groupId, userId });
   } catch (error) {
     console.error('Error removing member from group:', error);
     throw error;
@@ -846,9 +798,7 @@ export const leaveGroup = async (
     const updatedData = updatedSnap.data();
     if (!updatedData.participants || updatedData.participants.length === 0) {
       await deleteDoc(conversationRef);
-      console.log('✅ Group deleted (no members left):', groupId);
     } else {
-      console.log('✅ User left group:', { groupId, userId });
     }
   } catch (error) {
     console.error('Error leaving group:', error);
@@ -907,7 +857,6 @@ export const transferAdminRights = async (
     // Create system message
     await createSystemMessage(groupId, `${newAdminName} was made an admin`);
     
-    console.log('✅ Admin rights transferred:', { groupId, newAdminId });
   } catch (error) {
     console.error('Error transferring admin rights:', error);
     throw error;
@@ -965,7 +914,6 @@ export const removeAdminRights = async (
     // Create system message
     await createSystemMessage(groupId, `${userName} is no longer an admin`);
     
-    console.log('✅ Admin rights removed:', { groupId, adminId });
   } catch (error) {
     console.error('Error removing admin rights:', error);
     throw error;
@@ -1005,7 +953,6 @@ export const muteConversation = async (
       updatedAt: serverTimestamp(),
     });
     
-    console.log('✅ Conversation muted:', { userId, conversationId, mutedUntil });
   } catch (error) {
     console.error('Error muting conversation:', error);
     throw error;
@@ -1038,7 +985,6 @@ export const unmuteConversation = async (
       updatedAt: serverTimestamp(),
     });
     
-    console.log('✅ Conversation unmuted:', { userId, conversationId });
   } catch (error) {
     console.error('Error unmuting conversation:', error);
     throw error;
@@ -1508,17 +1454,9 @@ export const subscribeToConversations = (
   return onSnapshot(q, async (snapshot) => {
     const conversations: Conversation[] = [];
     
-    console.log('🔍 [subscribeToConversations] Received snapshot with', snapshot.docs.length, 'conversations for user:', userId);
-    
     for (const docSnap of snapshot.docs) {
       try {
         const data = docSnap.data();
-        
-        console.log('🔍 [subscribeToConversations] Processing conversation:', {
-          conversationId: docSnap.id,
-          participantIds: data.participants,
-          currentUserId: userId,
-        });
         
         // Fetch participant details
         const participants = await Promise.all(
@@ -1527,13 +1465,6 @@ export const subscribeToConversations = (
               const userDoc = await getDoc(doc(db, 'users', participantId));
               if (userDoc.exists()) {
                 const userData = userDoc.data();
-                console.log('✅ [subscribeToConversations] Fetched participant data:', {
-                  conversationId: docSnap.id,
-                  participantId,
-                  name: userData.name,
-                  email: userData.email,
-                  username: userData.username,
-                });
                 return {
                   id: participantId,
                   name: userData.name || 'Unknown User',
@@ -1547,9 +1478,9 @@ export const subscribeToConversations = (
                 } as User;
               }
             } catch (error) {
-              console.error(`❌ [subscribeToConversations] Error fetching participant ${participantId}:`, error);
+              console.error(`Error fetching participant ${participantId}:`, error);
             }
-            console.error('❌ [subscribeToConversations] User document not found:', {
+            console.error('User document not found:', {
               conversationId: docSnap.id,
               participantId,
             });
@@ -1564,10 +1495,6 @@ export const subscribeToConversations = (
           })
         );
 
-        console.log('📋 [subscribeToConversations] All participants fetched:', {
-          conversationId: docSnap.id,
-          participants: participants.map(p => ({ id: p.id, name: p.name, email: p.email })),
-        });
 
         const conversation: Conversation = {
           id: docSnap.id,
