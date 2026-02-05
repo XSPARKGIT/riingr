@@ -301,7 +301,7 @@ export const GroupSettingsView: React.FC<GroupSettingsViewProps> = ({
                       </div>
                     </div>
                     {isAdmin && (
-                      <div className="flex items-center gap-1 shrink-0">
+                      <div className="flex flex-col gap-1.5 shrink-0 ml-3">
                         <button
                           onClick={async () => {
                             try {
@@ -312,7 +312,7 @@ export const GroupSettingsView: React.FC<GroupSettingsViewProps> = ({
                               toast.error('Could not approve member. Please try again.');
                             }
                           }}
-                          className="px-3 py-1.5 rounded-full bg-green-600 text-white text-[11px] font-black uppercase tracking-widest hover:bg-green-700 transition-colors"
+                          className="px-3 py-1 rounded-full bg-green-600 text-white text-[10px] font-black uppercase tracking-[0.16em] hover:bg-green-700 transition-colors shadow-sm"
                         >
                           Approve
                         </button>
@@ -330,7 +330,7 @@ export const GroupSettingsView: React.FC<GroupSettingsViewProps> = ({
                               toast.error('Could not reject member. Please try again.');
                             }
                           }}
-                          className="px-3 py-1.5 rounded-full bg-slate-100 text-[11px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-200 transition-colors"
+                          className="px-3 py-1 rounded-full bg-slate-100 text-[10px] font-black uppercase tracking-[0.16em] text-slate-600 hover:bg-slate-200 transition-colors"
                         >
                           Reject
                         </button>

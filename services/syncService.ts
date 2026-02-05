@@ -913,6 +913,7 @@ const syncConversationsFromFirestore = async (userId: string): Promise<void> => 
       messages: [], // Messages loaded separately
       admins: data.admins,
       isPinned: data.isPinned || false,
+      pendingMemberIds: data.pendingMemberIds || [],
     };
 
     await saveConversationLocally(conversation);

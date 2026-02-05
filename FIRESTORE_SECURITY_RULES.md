@@ -51,33 +51,49 @@ service cloud.firestore {
       // - Owners/admins can update group metadata (name, avatar, description, theme, updatedAt)
       // - Owners/admins can update participants array (add/remove members, pendingMemberIds)
       // - Owners/admins can update role arrays (owners, admins, moderators)
-      allow update: if isParticipant(conversationId) && (
-        // Owners/Admins can update group metadata + theme
-        (resource.data.type == 'group' && 
-         (request.auth.uid in resource.data.owners || request.auth.uid in resource.data.admins) &&
-         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'avatar', 'description', 'theme', 'updatedAt'])) ||
-        // Owners/Admins can update participants and pendingMemberIds
-        (resource.data.type == 'group' && 
-         (request.auth.uid in resource.data.owners || request.auth.uid in resource.data.admins) &&
-         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participants', 'pendingMemberIds', 'updatedAt'])) ||
-        // Owners/Admins can update role arrays and inviteLinkEnabled
-        (resource.data.type == 'group' && 
-         (request.auth.uid in resource.data.owners || request.auth.uid in resource.data.admins) &&
-         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['owners', 'admins', 'moderators', 'inviteLinkEnabled', 'updatedAt'])) ||
-        // Participants can update other fields (like isPinned)
-        (!request.resource.data.diff(resource.data).affectedKeys().hasAny([
-          'name',
-          'avatar',
-          'description',
-          'theme',
-          'participants',
-          'pendingMemberIds',
-          'owners',
-          'admins',
-          'moderators',
-          'inviteLinkEnabled'
-        ]))
-      );
+      // - Any authenticated user can add *themselves* to pendingMemberIds (join request)
+      allow update: if
+        (
+          // Regular participant/admin updates
+          isParticipant(conversationId) &&
+          (
+            // Owners/Admins can update group metadata + theme
+            (resource.data.type == 'group' && 
+             (request.auth.uid in resource.data.owners || request.auth.uid in resource.data.admins) &&
+             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'avatar', 'description', 'theme', 'updatedAt'])) ||
+            // Owners/Admins can update participants and pendingMemberIds
+            (resource.data.type == 'group' && 
+             (request.auth.uid in resource.data.owners || request.auth.uid in resource.data.admins) &&
+             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participants', 'pendingMemberIds', 'updatedAt'])) ||
+            // Owners/Admins can update role arrays and inviteLinkEnabled
+            (resource.data.type == 'group' && 
+             (request.auth.uid in resource.data.owners || request.auth.uid in resource.data.admins) &&
+             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['owners', 'admins', 'moderators', 'inviteLinkEnabled', 'updatedAt'])) ||
+            // Participants can update other fields (like isPinned)
+            (!request.resource.data.diff(resource.data).affectedKeys().hasAny([
+              'name',
+              'avatar',
+              'description',
+              'theme',
+              'participants',
+              'pendingMemberIds',
+              'owners',
+              'admins',
+              'moderators',
+              'inviteLinkEnabled'
+            ]))
+          )
+        )
+        ||
+        (
+          // Join-by-invite: allow any authenticated user to add themselves to pendingMemberIds
+          isAuthenticated() &&
+          resource.data.type == 'group' &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pendingMemberIds', 'updatedAt']) &&
+          // The new pendingMemberIds must contain the caller, and they must not already be pending
+          !(request.auth.uid in resource.data.pendingMemberIds) &&
+          request.auth.uid in request.resource.data.pendingMemberIds
+        );
       
       // Participants can delete conversations (for leaving groups)
       allow delete: if isParticipant(conversationId);

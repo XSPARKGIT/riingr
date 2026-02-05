@@ -7,6 +7,7 @@ import { AuthScreen } from './components/AuthScreen';
 import { OnboardingProfile } from './components/OnboardingProfile';
 import { GroupSettingsView } from './components/GroupSettingsView';
 import { GroupCreationModal } from './components/GroupCreationModal';
+import { JoinGroupView } from './components/JoinGroupView';
 import { 
     EditProfileSection, 
     SupportPopup,
@@ -54,6 +55,7 @@ import { getConversationsLocally, getMessagesLocally, getSyncQueueCount, clearAl
 import { shouldShowNotificationForLevel } from './services/notificationService';
 import type { Conversation, Message, User, PollOption, MutedConversation, ConversationPreference, ConversationNotificationLevel } from './types';
 import { INITIAL_CONVERSATIONS, MessengerIcon } from './constants';
+import { toast } from './utils/toast';
 import { meAvatar } from './assets';
 
 const AUTH_KEY = 'ringr_is_authenticated';
@@ -80,6 +82,7 @@ const App: React.FC = () => {
     const [groupFileMessages, setGroupFileMessages] = useState<Message[]>([]);
     const [groupPinnedMessages, setGroupPinnedMessages] = useState<Message[]>([]);
     const [conversationPreferences, setConversationPreferences] = useState<ConversationPreference[]>([]);
+    const [inviteToken, setInviteToken] = useState<string | null>(null);
     const prevSyncQueueCountRef = useRef<number>(0);
     const selectedConversationIdRef = useRef<string | null>(selectedConversationId);
     
@@ -146,6 +149,32 @@ const App: React.FC = () => {
             document.removeEventListener('mouseup', handleMouseUp);
         };
     }, [isResizing]);
+
+    // Check for invite token in URL on mount and when URL changes
+    useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('invite');
+        if (token) {
+            setInviteToken(token);
+        } else {
+            setInviteToken(null);
+        }
+    }, []);
+
+    // Also check when location changes (for browser back/forward)
+    useEffect(() => {
+        const handleLocationChange = () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const token = urlParams.get('invite');
+            if (token) {
+                setInviteToken(token);
+            } else {
+                setInviteToken(null);
+            }
+        };
+        window.addEventListener('popstate', handleLocationChange);
+        return () => window.removeEventListener('popstate', handleLocationChange);
+    }, []);
 
     // Load contacts from Firestore when user is authenticated
     useEffect(() => {
@@ -400,6 +429,12 @@ const App: React.FC = () => {
     const selectedConversation = conversations.find(c => c.id === selectedConversationId);
 
     const handleLogin = (email: string, userId: string) => {
+        // Check for invite token in URL after login
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('invite');
+        if (token) {
+            setInviteToken(token);
+        }
         // Extract name from email (or you can fetch from Firebase later)
         const emailName = email.split('@')[0];
         const user = {
@@ -1214,6 +1249,36 @@ const App: React.FC = () => {
         currentUser.id !== 'me' &&
         currentUser.profileComplete !== true
     );
+
+    // Show join group view if there's an invite token
+    if (inviteToken) {
+        return (
+            <JoinGroupView
+                inviteToken={inviteToken}
+                currentUser={currentUser}
+                isAuthenticated={isAuthenticated}
+                onLogin={() => {
+                    // Clear the invite token temporarily to show login screen
+                    // After login, the token will be restored from URL
+                    setInviteToken(null);
+                }}
+                onJoinSuccess={() => {
+                    // Clear invite token from URL and state
+                    const url = new URL(window.location.href);
+                    url.searchParams.delete('invite');
+                    window.history.replaceState({}, '', url.toString());
+                    setInviteToken(null);
+                }}
+                onCancel={() => {
+                    // Clear invite token from URL and state
+                    const url = new URL(window.location.href);
+                    url.searchParams.delete('invite');
+                    window.history.replaceState({}, '', url.toString());
+                    setInviteToken(null);
+                }}
+            />
+        );
+    }
 
     if (!isAuthenticated) return <AuthScreen onLogin={handleLogin} />;
     if (isProfileLoading) {

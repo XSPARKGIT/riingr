@@ -14,6 +14,7 @@ import {
   arrayRemove,
   Timestamp,
   addDoc,
+  orderBy,
 } from 'firebase/firestore';
 import { db } from './firebaseConfig';
 import { auth } from './firebaseConfig';
@@ -1263,7 +1264,28 @@ export const createGroupInviteLink = async (
     createdAt: serverTimestamp(),
     active: true,
   };
-  
+
+  // Try to include some public group metadata on the invite so that
+  // unauthenticated users (or non‑members) can see basic info on the
+  // “Join Group” screen without needing read access to the conversation.
+  try {
+    const groupRef = doc(db, 'conversations', groupId);
+    const groupSnap = await getDoc(groupRef);
+    if (groupSnap.exists()) {
+      const data = groupSnap.data();
+      inviteData.groupName = data.name || '';
+      inviteData.groupAvatar = data.avatar || '';
+      inviteData.groupDescription = data.description || '';
+      if (Array.isArray(data.participants)) {
+        inviteData.participantCount = data.participants.length;
+      }
+    }
+  } catch (error) {
+    // If this fails we still create a functional invite; the join page
+    // will just show generic metadata.
+    console.error('Error enriching invite with group metadata:', error);
+  }
+
   if (expiresAt) {
     inviteData.expiresAt = Timestamp.fromMillis(expiresAt);
   }
@@ -1307,17 +1329,22 @@ export const getGroupInviteLinks = async (
   }> = [];
   
   snapshot.forEach((docSnap) => {
-    const data = docSnap.data();
-    const invite = {
+    const data = docSnap.data() as any;
+    const invite: {
+      token: string;
+      createdAt: number;
+      active: boolean;
+      expiresAt?: number;
+    } = {
       token: docSnap.id,
-      createdAt: data.createdAt?.toMillis() || Date.now(),
+      createdAt: data.createdAt?.toMillis?.() || Date.now(),
       active: data.active,
     };
-    
-    if (data.expiresAt) {
+
+    if (data.expiresAt?.toMillis) {
       invite.expiresAt = data.expiresAt.toMillis();
     }
-    
+
     invites.push(invite);
   });
   
@@ -1368,13 +1395,11 @@ export const requestJoinGroupByInvite = async (
 
   const groupId = inviteData.groupId as string;
   const groupRef = doc(db, 'conversations', groupId);
-  const groupSnap = await getDoc(groupRef);
-  if (!groupSnap.exists()) throw new Error('Group not found');
 
-  const data = groupSnap.data();
-  const pending: string[] = data.pendingMemberIds || [];
-  if (pending.includes(userId)) return;
-
+  // We don't read the group document here because Firestore rules only
+  // allow participants to read conversations. The security rule we added
+  // for join-by-invite validates that the caller is only adding themselves
+  // to pendingMemberIds, so it's safe to issue the blind update.
   await updateDoc(groupRef, {
     pendingMemberIds: arrayUnion(userId),
     updatedAt: serverTimestamp(),
@@ -1506,6 +1531,7 @@ export const subscribeToConversations = (
           messages: [], // Messages loaded separately via message listener
           admins: data.admins,
           isPinned: data.isPinned || false,
+          pendingMemberIds: data.pendingMemberIds || [],
         };
 
         conversations.push(conversation);
