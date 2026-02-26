@@ -47,7 +47,8 @@ import {
     getPinnedMessages,
     getConversationNotificationPreferences,
     setConversationNotificationLevel,
-    requestJoinGroupByInvite
+    requestJoinGroupByInvite,
+    markMessageAsDelivered
 } from './services/firestoreService';
 import { sendMessage as syncSendMessage, startBackgroundSync, stopBackgroundSync, syncAllFromFirestore, subscribeToMessages } from './services/syncService';
 import { initConnectionListener } from './services/connectionService';
@@ -827,6 +828,20 @@ const App: React.FC = () => {
         // Subscribe to messages for all conversations
         ids.forEach(conversationId => {
             const unsubscribe = subscribeToMessages(conversationId, (newMessages) => {
+                // Mark incoming messages as delivered for the current user
+                if (currentUser?.id) {
+                    newMessages.forEach((msg) => {
+                        if (
+                            msg.senderId !== currentUser.id &&
+                            msg.senderId !== 'me' &&
+                            !(msg.deliveredTo || []).includes(currentUser.id)
+                        ) {
+                            // Fire-and-forget; delivery receipts are best-effort
+                            markMessageAsDelivered(conversationId, msg.id, currentUser.id).catch(() => {});
+                        }
+                    });
+                }
+
                 setConversations(prev => prev.map(prevConvo => {
                     if (prevConvo.id === conversationId) {
                         // Use all messages from Firestore (they're already sorted)
